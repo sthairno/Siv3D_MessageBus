@@ -1,0 +1,87 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build Siv3D_MessageBus (Debug)",
+            "type": "shell",
+            "command": "scripts/msbuild.bat",
+            "args": [
+                "Siv3D_MessageBus",
+                "Debug",
+            ],
+            "group": "build",
+            "presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "Build Siv3D_MessageBus (Release)",
+            "type": "shell",
+            "command": "scripts/msbuild.bat",
+            "args": [
+                "Siv3D_MessageBus",
+                "Release",
+            ],
+            "group": "build",
+            "presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "Build Test (Debug)",
+            "type": "shell",
+            "command": "scripts/msbuild.bat",
+            "args": [
+                "Test",
+                "Debug",
+            ],
+            "group": "build",
+            "presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "Build Test (Release)",
+            "type": "shell",
+            "command": "scripts/msbuild.bat",
+            "args": [
+                "Test",
+                "Release",
+            ],
+            "group": "build",
+            "presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "Run Test (Debug)",
+            "type": "shell",
+            "command": "scripts/runtest.bat",
+            "args": [
+                "Debug"
+            ],
+            "group": "test",
+            "presentation": {
+                "reveal": "always"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Test (Release)",
+            "type": "shell",
+            "command": "scripts/runtest.bat",
+            "args": [
+                "Release"
+            ],
+            "group": "test",
+            "presentation": {
+                "reveal": "always"
+            },
+            "problemMatcher": []
+        }
+    ]
+}

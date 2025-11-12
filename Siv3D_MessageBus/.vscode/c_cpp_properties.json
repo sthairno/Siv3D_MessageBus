@@ -1,0 +1,53 @@
+{
+    "configurations": [
+        {
+            "name": "Debug",
+            "includePath": [
+                "${workspaceFolder}",
+                "${workspaceFolder}/include/ThirdParty",
+                "${workspaceFolder}/vcpkg_installed/x64-windows-static/x64-windows-static/include",
+                "${SIV3D_0_6_16}/include",
+                "${SIV3D_0_6_16}/include/ThirdParty"
+            ],
+            "defines": [
+                "SIV3D_LIBRARY_BUILD",
+                "_DEBUG",
+                "_WINDOWS",
+                "_ENABLE_EXTENDED_ALIGNED_STORAGE",
+                "_SILENCE_CXX20_CISO646_REMOVED_WARNING",
+                "_SILENCE_ALL_CXX23_DEPRECATION_WARNINGS",
+                "_SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS"
+            ],
+            "windowsSdkVersion": "10.0.22621.0",
+            "compilerPath": "cl.exe",
+            "cStandard": "c23",
+            "cppStandard": "c++23",
+            "intelliSenseMode": "windows-msvc-x64"
+        },
+        {
+            "name": "Release",
+            "includePath": [
+                "${workspaceFolder}",
+                "${workspaceFolder}/include/ThirdParty",
+                "${workspaceFolder}/vcpkg_installed/x64-windows-static/x64-windows-static/include",
+                "${SIV3D_0_6_16}/include",
+                "${SIV3D_0_6_16}/include/ThirdParty"
+            ],
+            "defines": [
+                "SIV3D_LIBRARY_BUILD",
+                "NDEBUG",
+                "_WINDOWS",
+                "_ENABLE_EXTENDED_ALIGNED_STORAGE",
+                "_SILENCE_CXX20_CISO646_REMOVED_WARNING",
+                "_SILENCE_ALL_CXX23_DEPRECATION_WARNINGS",
+                "_SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS"
+            ],
+            "windowsSdkVersion": "10.0.22621.0",
+            "compilerPath": "cl.exe",
+            "cStandard": "c23",
+            "cppStandard": "c++23",
+            "intelliSenseMode": "windows-msvc-x64"
+        }
+    ],
+    "version": 4
+}

@@ -1,0 +1,10 @@
+vcpkg_installed/
+build/
+dest/
+.reference/
+.plan/
+
+*.user
+*.aps
+
+AS_DEBUG/

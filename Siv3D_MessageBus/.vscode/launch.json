@@ -1,0 +1,25 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch (Debug)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/App/${workspaceFolderBasename}(debug).exe",
+            "args": [],
+            "cwd": "${workspaceFolder}/App",
+            "environment": [],
+            "preLaunchTask": "Build (Debug)",
+        },
+        {
+            "name": "Launch (Release)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/App/${workspaceFolderBasename}.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}/App",
+            "environment": [],
+            "preLaunchTask": "Build (Release)",
+        },
+    ]
+}

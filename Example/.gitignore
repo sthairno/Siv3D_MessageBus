@@ -1,0 +1,24 @@
+# Visual Studio
+*.user
+
+# Siv3D
+# example Wavefront .obj files
+!**/example/obj/
+!**/example/obj/*.obj
+
+# Ignore compiled binaries
+**/App/*.app
+**/App/*.exe
+
+# Ignore any saved local files
+**/App/AS_DEBUG/
+**/App/Screenshot/
+
+# Ignore resource files
+#**/App/example
+#**/App/engine
+#**/App/dll
+
+# Siv3D SDK for macOS
+/include/
+/lib/
