@@ -37,7 +37,7 @@ def render_cpp(title: str, copyright_text: str, license_text: str) -> str:
 
 def main() -> int:
     project_root = Path(__file__).resolve().parents[1]
-    source = project_root / "vcpkg_installed" / "x64-windows-static" / "x64-windows-static" / "share" / "hiredis" / "copyright"
+    source = project_root / "vcpkg_installed" / "x64-windows-static" / "share" / "hiredis" / "copyright"
     out = project_root / "src" / "generated" / "HiredisLicense.cpp"
     title = "hiredis"
 
