@@ -12,19 +12,19 @@ class BuildError(RuntimeError):
 def default_vswhere_path() -> Path:
     program_files_x86 = os.environ.get("ProgramFiles(x86)")
     if not program_files_x86:
-        raise BuildError("環境変数 ProgramFiles(x86) が設定されていません。Visual Studio がインストールされているか確認してください。")
+        raise BuildError("Environment variable ProgramFiles(x86) is not set. Please verify that Visual Studio is installed.")
     return Path(program_files_x86) / "Microsoft Visual Studio" / "Installer" / "vswhere.exe"
 
 def find_msbuild(explicit_path: str | None) -> Path:
     if explicit_path:
         msbuild_path = Path(explicit_path)
         if not msbuild_path.exists():
-            raise BuildError(f"指定された MSBuild パスが見つかりません: {msbuild_path}")
+            raise BuildError(f"Specified MSBuild path was not found: {msbuild_path}")
         return msbuild_path.resolve()
 
     vswhere = default_vswhere_path()
     if not vswhere.exists():
-        raise BuildError(f"vswhere.exe が見つかりません: {vswhere}")
+        raise BuildError(f"vswhere.exe was not found: {vswhere}")
 
     try:
         completed = subprocess.run(
@@ -41,21 +41,21 @@ def find_msbuild(explicit_path: str | None) -> Path:
             text=True,
         )
     except subprocess.CalledProcessError as exc:
-        raise BuildError(f"vswhere を用いた MSBuild の検索に失敗しました: {exc.stderr.strip()}") from exc
+        raise BuildError(f"Failed to locate MSBuild via vswhere: {exc.stderr.strip()}") from exc
 
     for line in completed.stdout.splitlines():
         msbuild_candidate = Path(line.strip())
         if msbuild_candidate.exists():
             return msbuild_candidate.resolve()
 
-    raise BuildError("MSBuild.exe を検出できませんでした。Visual Studio のインストールを確認してください。")
+    raise BuildError("Could not detect MSBuild.exe. Please confirm that Visual Studio is installed.")
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="MSBuild を用いて Visual Studio プロジェクトをビルドします。")
-    parser.add_argument("project", help="ビルド対象のプロジェクト名（.vcxproj を省略可）")
-    parser.add_argument("configuration", choices=["Debug", "Release"], help="ビルド構成")
-    parser.add_argument("--platform", default="x64", help="ターゲットプラットフォーム（既定: x64）")
-    parser.add_argument("--msbuild-path", help="MSBuild.exe の絶対パス（指定しない場合は vswhere で検索）")
+    parser = argparse.ArgumentParser(description="Build a Visual Studio project using MSBuild.")
+    parser.add_argument("project", help="Project name to build (.vcxproj extension optional).")
+    parser.add_argument("configuration", choices=["Debug", "Release"], help="Build configuration.")
+    parser.add_argument("--platform", default="x64", help="Target platform (default: x64).")
+    parser.add_argument("--msbuild-path", help="Absolute path to MSBuild.exe (if omitted, detected via vswhere).")
     return parser.parse_args()
 
 def main() -> int:
@@ -70,19 +70,19 @@ def main() -> int:
 
     project_path = project_root / project_name
     if not project_path.exists():
-        print(f"エラー: プロジェクトファイルが見つかりません: {project_path}", file=sys.stderr)
+        print(f"Error: Project file not found: {project_path}", file=sys.stderr)
         return 1
 
     try:
         msbuild_path = find_msbuild(args.msbuild_path)
     except BuildError as exc:
-        print(f"エラー: {exc}", file=sys.stderr)
+        print(f"Error: {exc}", file=sys.stderr)
         return 1
 
     print(f"MSBuild: {msbuild_path}")
-    print(f"プロジェクト: {project_path}")
-    print(f"構成: {args.configuration}")
-    print(f"プラットフォーム: {args.platform}")
+    print(f"Project: {project_path}")
+    print(f"Configuration: {args.configuration}")
+    print(f"Platform: {args.platform}")
 
     command = [
         str(msbuild_path),
@@ -98,14 +98,14 @@ def main() -> int:
     try:
         completed = subprocess.run(command, cwd=project_root, check=False)
     except OSError as exc:
-        print(f"MSBuild の実行に失敗しました: {exc}", file=sys.stderr)
+        print(f"Failed to launch MSBuild: {exc}", file=sys.stderr)
         return 1
 
     if completed.returncode != 0:
-        print(f"MSBuild がエラーコード {completed.returncode} で終了しました。", file=sys.stderr)
+        print(f"MSBuild exited with error code {completed.returncode}.", file=sys.stderr)
         return completed.returncode
 
-    print("ビルドが正常に完了しました。")
+    print("Build completed successfully.")
     return 0
 
 if __name__ == "__main__":

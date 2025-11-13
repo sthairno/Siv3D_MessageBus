@@ -10,11 +10,11 @@ VALID_CONFIGURATIONS = {"Debug", "Release"}
 
 def parse_args() -> tuple[str, list[str], bool]:
     parser = argparse.ArgumentParser(
-        description="Google Test を実行します。第1引数に構成 (Debug/Release) を指定できます。",
+        description="Run Google Test. Optionally specify configuration (Debug/Release) as the first argument.",
         add_help=True,
     )
-    parser.add_argument("configuration", nargs="?", help="使用するビルド構成。省略時は Debug。")
-    parser.add_argument("gtest_args", nargs=argparse.REMAINDER, help="Google Test に渡す追加引数。")
+    parser.add_argument("configuration", nargs="?", help="Build configuration to use. Defaults to Debug.")
+    parser.add_argument("gtest_args", nargs=argparse.REMAINDER, help="Additional arguments passed to Google Test.")
 
     args = parser.parse_args()
     configuration = args.configuration
@@ -22,11 +22,11 @@ def parse_args() -> tuple[str, list[str], bool]:
 
     used_default = False
     if configuration is None:
-        print("構成が指定されていません。既定値 Debug を使用します。")
+        print("No configuration specified. Using default Debug.")
         used_default = True
         configuration = "Debug"
     elif configuration not in VALID_CONFIGURATIONS:
-        print(f'構成 "{configuration}" は無効です。既定値 Debug を使用します。')
+        print(f'Configuration "{configuration}" is invalid. Using default Debug.')
         used_default = True
         extra_args = [configuration] + extra_args
         configuration = "Debug"
@@ -46,19 +46,23 @@ def main() -> int:
         test_exe = project_root / "build" / "Test" / "release" / "bin" / "Test.exe"
 
     if not test_exe.exists():
-        print(f"エラー: テスト実行ファイルが見つかりません: {test_exe}", file=sys.stderr)
-        print(f"先に scripts/msbuild.py { 'Test Debug' if configuration == 'Debug' else 'Test Release' } を実行してください。", file=sys.stderr)
+        print(f"Error: Test executable not found: {test_exe}", file=sys.stderr)
+        print(
+            f"Please build first by running scripts/msbuild.py "
+            f"{'Test Debug' if configuration == 'Debug' else 'Test Release'}.",
+            file=sys.stderr,
+        )
         return 1
 
     work_dir = project_root / "test" / "App"
 
-    print(f"テストを実行します: 構成={configuration}")
+    print(f"Running tests: configuration={configuration}")
     print(f"Test.exe: {test_exe}")
-    print(f"作業ディレクトリ: {work_dir}")
+    print(f"Working directory: {work_dir}")
     if extra_args:
-        print(f"追加引数: {' '.join(extra_args)}")
+        print(f"Additional arguments: {' '.join(extra_args)}")
     elif notified_default:
-        print("追加引数: (なし)")
+        print("Additional arguments: (none)")
 
     env = os.environ.copy()
     env.setdefault("GTEST_COLOR", "1")
@@ -71,7 +75,7 @@ def main() -> int:
             check=False,
         )
     except OSError as exc:
-        print(f"テスト実行に失敗しました: {exc}", file=sys.stderr)
+        print(f"Failed to execute tests: {exc}", file=sys.stderr)
         return 1
 
     return completed.returncode

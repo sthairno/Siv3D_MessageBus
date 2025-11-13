@@ -16,6 +16,7 @@ env:
   FEED_URL: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
   VCPKG_BINARY_SOURCES: clear;nuget,https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json,readwrite
   SIV3D_ENV_NAME: SIV3D_0_6_16
+  PYTHONIOENCODING: utf-8
 
 jobs:
   build-and-test:

@@ -9,7 +9,7 @@ class PackagingError(RuntimeError):
 
 def resolve_path(path: Path, description: str) -> Path:
     if not path.exists():
-        raise PackagingError(f"必要なリソースが見つかりません: {description} -> {path}")
+        raise PackagingError(f"Required resource not found: {description} -> {path}")
     return path.resolve()
 
 def main() -> int:
@@ -79,10 +79,10 @@ def main() -> int:
         print(f"Package layout prepared at: {dest_root}")
         return 0
     except PackagingError as exc:
-        print(f"エラー: {exc}", file=sys.stderr)
+        print(f"Error: {exc}", file=sys.stderr)
         return 1
     except OSError as exc:
-        print(f"ファイル操作中にエラーが発生しました: {exc}", file=sys.stderr)
+        print(f"An error occurred while performing file operations: {exc}", file=sys.stderr)
         return 1
 
 if __name__ == "__main__":
