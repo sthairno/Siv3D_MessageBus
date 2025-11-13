@@ -7,19 +7,18 @@ on:
       - develop
   pull_request:
 
-permissions:
-  contents: read
-  packages: write
-
 env:
-  USERNAME: ${{ github.repository_owner }}
-  FEED_URL: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
-  VCPKG_BINARY_SOURCES: clear;nuget,https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json,readwrite
-  SIV3D_ENV_NAME: SIV3D_0_6_16
   PYTHONIOENCODING: utf-8
 
 jobs:
   build-and-test:
+    env:
+      USERNAME: ${{ github.repository_owner }}
+      FEED_URL: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+      VCPKG_BINARY_SOURCES: clear;nuget,https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json,readwrite
+    permissions:
+      contents: read
+      packages: write
     runs-on: windows-latest
     defaults:
       run:
@@ -68,11 +67,16 @@ jobs:
         working-directory: Siv3D_MessageBus
         run: python3 scripts/msbuild.py Siv3D_MessageBus Release
 
+      - name: Package distribution
+        working-directory: Siv3D_MessageBus
+        run: python3 scripts/package.py
+
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-build-${{ github.ref_name }}-${{ github.sha }}
-          path: Siv3D_MessageBus/build
+          path: Siv3D_MessageBus/dest/*
+          if-no-files-found: error
           retention-days: 1
       
       - name: Build Test (Debug)
@@ -82,3 +86,38 @@ jobs:
       - name: Run Test (Debug)
         working-directory: Siv3D_MessageBus
         run: python3 scripts/runtest.py Debug
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-build-${{ github.ref_name }}-${{ github.sha }}
+          path: windows
+
+      - name: Create package archive
+        shell: bash
+        run: |
+          set -euxo pipefail
+          PACKAGE_NAME="Siv3D_MessageBus_Windows.zip"
+          DEST_DIR="$GITHUB_WORKSPACE/windows"
+          OUTPUT_DIR="$GITHUB_WORKSPACE/_site"
+          mkdir -p "$OUTPUT_DIR"
+          cd "$DEST_DIR"
+          zip -r "$OUTPUT_DIR/$PACKAGE_NAME" .
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v4
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
