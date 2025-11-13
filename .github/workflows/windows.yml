@@ -41,7 +41,7 @@ jobs:
           download-url: "https://siv3d.jp/downloads/Siv3D/manual/0.6.16/OpenSiv3D_SDK_0.6.16.zip"
           siv3d-env: SIV3D_0_6_16
 
-      - name: Add NuGet sources
+      - name: Configure NuGet and vcpkg
         shell: pwsh
         run: |
           .$(vcpkg fetch nuget) `
@@ -54,6 +54,7 @@ jobs:
           .$(vcpkg fetch nuget) `
             setapikey "${{ secrets.GITHUB_TOKEN }}" `
             -Source "${{ env.FEED_URL }}"
+          vcpkg integrate install
 
       - name: Install dependencies with vcpkg
         working-directory: Siv3D_MessageBus
