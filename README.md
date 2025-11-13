@@ -1,9 +1,35 @@
-# Siv3D_MessageBus (要件)
+# Siv3D_MessageBus
+
+## 導入方法
+
+> [!NOTE]
+> 現在Windows版Siv3Dのみ対応しています (Mac,Linux,Webは今後対応予定)
+
+1. [Windows版 OpenSiv3D SDK v0.6.16](https://siv3d.github.io/ja-jp/download/windows/)をインストールする
+
+2. Siv3D_MessageBusのzipファイルをダウンロード
+
+    | [ダウンロード](http://sthairno.github.io/Siv3D_MessageBus/Siv3D_MessageBus_Windows.zip) |
+    | --- |
+
+3. OpenSiv3D SDKのフォルダを開き、ダウンロードした.zipファイルの中身をコピーする
+
+    > **SDKのフォルダを簡単に開く方法**    
+    > `Win`+`R`キーを押し、以下のコマンドを実行してください：
+    > ```
+    > explorer.exe %SIV3D_0_6_16%
+    > ```
+    
+    https://github.com/user-attachments/assets/332176ee-b63c-4221-b9b2-30aa3a1da5bc
+
+4. Visual Studioで通常通りOpenSiv3Dのプロジェクトを作成する
+
+---
+
+# 要件
 
 **件名**：Siv3D向けミニマルRedisラッパ（イベント＋共有変数）
 **目的**：アプリ間通信を初心者でも扱いやすいAPIにして提供する
-
----
 
 ## 1. スコープ
 
