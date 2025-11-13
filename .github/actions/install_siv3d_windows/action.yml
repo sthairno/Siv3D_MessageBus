@@ -1,0 +1,58 @@
+name: Install OpenSiv3D Windows SDK
+description: Download the OpenSiv3D SDK for Windows from the specified URL and extract it to the target path.
+
+inputs:
+  download-url:
+    description: URL to download the .zip file
+    required: true
+  siv3d-env:
+    description: Name of the environment variable
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set Installation Path
+      id: set-destination-path
+      shell: bash
+      run: |
+        input_dest='${{ inputs.destination }}'
+        destination_path='${{ runner.temp }}/OpenSiv3D_SDK'
+
+        echo "${{ inputs.siv3d-env }}=$destination_path" >> $GITHUB_ENV
+        echo "path=$destination_path" >> "$GITHUB_OUTPUT"
+
+    - name: Restore Cached SDK
+      id: restore-sdk-cache
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ steps.set-destination-path.outputs.path }}
+        key: ${{ inputs.siv3d-env }}
+
+    - name: Download SDK Archive
+      if: steps.restore-sdk-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        curl -L -o '${{ runner.temp }}/sdk.zip' '${{ inputs.download-url }}'
+
+    - name: Extract SDK Files
+      if: steps.restore-sdk-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        tmp_zippath='${{ runner.temp }}/sdk.zip'
+        tmp_sdkpath=$(echo '${{ runner.temp }}/sdk' | sed 's|\\|/|g') # for cp command
+        destination_path='${{ steps.set-destination-path.outputs.path }}'
+
+        unzip -d $tmp_sdkpath $tmp_zippath
+        mkdir -p $destination_path
+        cp -r $tmp_sdkpath/$(ls $tmp_sdkpath | head -n 1)/* $destination_path
+        rm -r $tmp_sdkpath $tmp_zippath
+
+        ls -al $destination_path
+    
+    - name: Cache Extracted SDK
+      if: steps.restore-sdk-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ steps.set-destination-path.outputs.path }}
+        key: ${{ steps.restore-sdk-cache.outputs.cache-primary-key }}

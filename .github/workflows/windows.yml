@@ -1,0 +1,82 @@
+name: CI/CD (Windows)
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  USERNAME: ${{ github.repository_owner }}
+  FEED_URL: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+  VCPKG_BINARY_SOURCES: clear;nuget,https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json,readwrite
+  SIV3D_ENV_NAME: SIV3D_0_6_16
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install OpenSiv3D SDK
+        id: install-sdk
+        uses: ./.github/actions/install_siv3d_windows
+        with:
+          download-url: "https://siv3d.jp/downloads/Siv3D/manual/0.6.16/OpenSiv3D_SDK_0.6.16.zip"
+          siv3d-env: SIV3D_0_6_16
+
+      - name: Add NuGet sources
+        shell: pwsh
+        run: |
+          .$(vcpkg fetch nuget) `
+            sources add `
+            -Source "${{ env.FEED_URL }}" `
+            -StorePasswordInClearText `
+            -Name GitHubPackages `
+            -UserName "${{ env.USERNAME }}" `
+            -Password "${{ secrets.GITHUB_TOKEN }}"
+          .$(vcpkg fetch nuget) `
+            setapikey "${{ secrets.GITHUB_TOKEN }}" `
+            -Source "${{ env.FEED_URL }}"
+
+      - name: Install dependencies with vcpkg
+        working-directory: Siv3D_MessageBus
+        run: vcpkg install --triplet x64-windows-static
+
+      - name: Build Siv3D_MessageBus (Debug)
+        working-directory: Siv3D_MessageBus
+        run: python3 scripts/msbuild.py Siv3D_MessageBus Debug
+
+      - name: Build Siv3D_MessageBus (Release)
+        working-directory: Siv3D_MessageBus
+        run: python3 scripts/msbuild.py Siv3D_MessageBus Release
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build-${{ github.ref_name }}
+          path: Siv3D_MessageBus/build
+          retention-days: 1
+      
+      - name: Build Test (Debug)
+        working-directory: Siv3D_MessageBus
+        run: python3 scripts/msbuild.py Test Debug
+
+      - name: Run Test (Debug)
+        working-directory: Siv3D_MessageBus
+        run: python3 scripts/runtest.py Debug
