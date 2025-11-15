@@ -18,7 +18,7 @@ def main() -> int:
 
     dest_root = project_root / "dest"
     include_source = project_root / "include" / "ThirdParty" / "MessageBus"
-    readme_source = project_root / "README.md"
+    readme_source = project_root / "HOW_TO_INSTALL.md"
 
     message_bus_release_lib = project_root / "build" / "Siv3D_MessageBus" / "release" / "bin" / "siv3d-messagebus.lib"
     message_bus_debug_lib = project_root / "build" / "Siv3D_MessageBus" / "debug" / "bin" / "siv3d-messagebus_d.lib"
@@ -31,7 +31,7 @@ def main() -> int:
     include_dest = dest_root / "include" / "ThirdParty" / "MessageBus"
     message_bus_lib_dest = dest_root / "lib" / "Windows" / "MessageBus"
     hiredis_lib_dest = dest_root / "lib" / "Windows" / "hiredis"
-    readme_dest = dest_root / "README.md"
+    readme_dest = dest_root / "HOW_TO_INSTALL.md"
 
     try:
         print(f"Cleaning destination directory: {dest_root}")
@@ -44,7 +44,7 @@ def main() -> int:
         resolve_path(hiredis_release_lib, "hiredis.lib (Release)")
         resolve_path(hiredis_debug_lib, "hiredisd.lib (Debug)")
         resolve_path(hiredis_license, "hiredis license file")
-        resolve_path(readme_source, "README.md")
+        resolve_path(readme_source, "HOW_TO_INSTALL.md")
 
         print("Creating directories...")
         for directory in (include_dest, message_bus_lib_dest, hiredis_lib_dest):
@@ -73,7 +73,7 @@ def main() -> int:
         print("Placing hiredis license...")
         shutil.copy2(hiredis_license, hiredis_lib_dest / "LICENSE_hiredis.txt")
 
-        print("Copying README.md...")
+        print("Copying HOW_TO_INSTALL.md...")
         shutil.copy2(readme_source, readme_dest)
 
         print(f"Package layout prepared at: {dest_root}")
