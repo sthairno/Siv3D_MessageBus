@@ -43,9 +43,36 @@ Siv3D_MessageBus は、Siv3Dアプリケーション間でメッセージをや�
 
 2. 展開した Siv3D_MessageBus の中身を、OpenSiv3D SDK フォルダへそのままコピーします
 
-### Step 4. Docker Desktop をインストールする
+### Step 4. Redisサーバーを起動する
 
-Redisサーバーを簡単に起動するため、Docker Desktop をセットアップします。
+Siv3Dのアプリを起動する前に、Redisサーバーを起動する必要があります
+
+Windowsでの起動方法は`3. Redisサーバーの起動方法（Windows）`を参照してください
+
+### Step 5. Siv3Dアプリケーションで接続する
+
+Siv3Dアプリケーションで Redis サーバーに接続するには、以下のようにコードを記述します。
+
+```cpp
+#include <Siv3D.hpp>
+#include <MessageBus/MessageBus.hpp>
+
+void Main()
+{
+    MessageBus::MessageBus bus(U"<Redisサーバーが起動しているホスト名>", 6379);
+    
+    while (System::Update())
+    {
+        bus.tick();
+    }
+}
+```
+
+## 3. Redisサーバーの起動方法（Windows）
+
+RedisサーバーをWindowsで起動するには、Dockerを使うと便利です。ここでは、Docker Desktopの環境構築とRedisの起動方法を解説します。
+
+### Step1. Docker Desktop をインストールする
 
 1. **WSL2 を有効化してPCを再起動する**  
    PowerShell を **管理者として** 実行し、以下のコマンドを入力します。これにより、Docker の動作に必要となる WSL (Windows Subsystem for Linux) が有効になります。
@@ -62,7 +89,18 @@ Redisサーバーを簡単に起動するため、Docker Desktop をセットア
    インストール後、Docker Desktop を起動します。初回起動時にはチュートリアルの表示やアカウント登録の案内がありますが、これらはスキップしても構いません。
    タスクトレイのクジラのアイコンが「Running」という緑色の状態になれば準備完了です。
 
-### Step 5. Redis サーバーを起動する
+> [!WARNING]
+> **Docker Desktop の起動に失敗したり、WSL関連のエラーが表示された場合**
+>
+> Docker Desktop の起動時や、`wsl --install` でインストールされたLinuxディストリビューションの起動時に `WslRegisterDistribution failed with error: 0x80370102` のようなエラーが表示された場合、PCの仮想化支援機能が無効になっている可能性があります。
+>
+> この機能を有効にするには、PCのBIOS/UEFI設定を変更する必要があります。設定方法はPCのメーカーによって異なりますが、以下の公式ドキュメントが参考になります。
+>
+> [Windows で仮想化を有効にする - Microsoft サポート](https://support.microsoft.com/ja-jp/windows/windows-%E3%81%A7%E4%BB%AE%E6%83%B3%E5%8C%96%E3%82%92%E6%9C%89%E5%8A%B9%E3%81%AB%E3%81%99%E3%82%8B-c5578302-6e43-4b4b-a449-8ced115f58e1)
+>
+> BIOS/UEFI設定画面で「Virtualization Technology (VT-x)」や「AMD-V」といった項目を探して `Enabled` (有効) に設定します。設定変更後は、PCを再起動して再度Docker Desktopの起動を試してください。
+
+### Step 2. Redis サーバーを起動する
 
 Docker Desktop が `Running` 状態になっていることを確認したら、Redis コンテナを起動します。
 
@@ -80,22 +118,3 @@ Docker Desktop が `Running` 状態になっていることを確認したら、
    ```
 
 これで、Siv3Dアプリ から `localhost:6379` に接続すれば Redis を利用できます。
-
-### Step 6. Siv3Dアプリケーションで接続する
-
-Siv3Dアプリケーションで Redis サーバーに接続するには、以下のようにコードを記述します。
-
-```cpp
-#include <Siv3D.hpp>
-#include <MessageBus/MessageBus.hpp>
-
-void Main()
-{
-    MessageBus::MessageBus bus(U"localhost", 6379);
-    
-    while (System::Update())
-    {
-        bus.tick();
-    }
-}
-```
