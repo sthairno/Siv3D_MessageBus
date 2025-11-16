@@ -2,8 +2,6 @@
 
 Siv3D_MessageBus は、Siv3Dアプリケーション間でメッセージをやり取りするためのライブラリです。このドキュメントでは、Windows 環境に導入するための手順を解説します。
 
-本ライブラリは、メッセージングの中継サーバーとして **Redis** を利用します。Windows で Redis を手軽に動かすため、**Docker** という仕組みを使います。
-
 ## 1. 前提条件
 
 - **対応 SDK**: OpenSiv3D SDK v0.6.16（Windows版）
@@ -70,7 +68,7 @@ void Main()
 
 ## 3. Redisサーバーの起動方法（Windows）
 
-RedisサーバーをWindowsで起動するには、Dockerを使うと便利です。ここでは、Docker Desktopの環境構築とRedisの起動方法を解説します。
+本ライブラリは、メッセージングの中継サーバーとして **Redis** を利用します。Windows で Redis を手軽に動かすため、Docker Desktopの環境構築とRedisの起動方法を解説します。
 
 ### Step1. Docker Desktop をインストールする
 
