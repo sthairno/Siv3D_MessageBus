@@ -84,8 +84,13 @@ jobs:
         run: python3 scripts/msbuild.py Test Debug
 
       - name: Run Test (Debug)
+        id: runtest
         working-directory: Siv3D_MessageBus
         run: python3 scripts/runtest.py Debug
+      
+      - name: Exit with SIV3D_EXIT_CODE
+        shell: bash
+        run: exit ${{ steps.runtest.outputs.SIV3D_EXIT_CODE }}
 
   deploy:
     if: github.ref == 'refs/heads/main'
