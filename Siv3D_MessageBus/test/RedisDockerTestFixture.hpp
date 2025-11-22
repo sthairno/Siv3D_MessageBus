@@ -1,12 +1,21 @@
-#pragma once
+﻿#pragma once
 #include <gtest/gtest.h>
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <WinSock2.h>
+#endif
 #include <boost/process.hpp>
+#include <boost/asio/readable_pipe.hpp>
+#include <boost/asio/read.hpp>
+#include <boost/system/error_code.hpp>
 #include <Siv3D.hpp>
 #include <MessageBus/RedisConnection.hpp>
 #include <MessageBus/RedisConnectionState.hpp>
 #include <string>
 
-namespace bp = boost::process;
+namespace bp = boost::process::v2;
+namespace asio = boost::asio;
 
 constexpr auto REDIS_IMAGE = "redis:7-alpine";
 constexpr auto REDIS_OLD_IMAGE = "redis:5-alpine"; // Not supported RESP3
@@ -17,19 +26,12 @@ namespace
 	// dockerコマンドのフルパスを取得
 	std::string GetDockerPath()
 	{
-		try
-		{
-			auto dockerPath = bp::search_path("docker");
-			if (dockerPath.empty())
-			{
-				return "";
-			}
-			return dockerPath.string();
-		}
-		catch (const std::exception&)
+		auto dockerPath = bp::environment::find_executable("docker");
+		if (dockerPath.empty())
 		{
 			return "";
 		}
+		return dockerPath.string();
 	}
 }
 
@@ -60,20 +62,22 @@ protected:
 		Stopwatch sw{ StartImmediately::Yes };
 		while (sw < timeout)
 		{
-			bp::ipstream pipe_stream;
-			bp::child c(
-				s_dockerPath, "inspect",
-				"-f", "{{.State.Health.Status}}",
-				REDIS_CONTAINER_NAME,
-				bp::std_out > pipe_stream
-			);
-			std::string output(
-				(std::istreambuf_iterator<char>(pipe_stream)),
-				std::istreambuf_iterator<char>()
-			);
-			c.wait();
+			asio::io_context ctx;
+			asio::readable_pipe pipe(ctx);
 
-			if (c.exit_code() == 0 && output.find("healthy") != std::string::npos)
+			bp::process proc(
+				ctx,
+				s_dockerPath,
+				{"inspect", "-f", "{{.State.Health.Status}}", REDIS_CONTAINER_NAME},
+				bp::process_stdio{{}, pipe, {}}
+			);
+			boost::system::error_code ec;
+			std::string output;
+
+			asio::read(pipe, asio::dynamic_buffer(output), ec);
+			int exitCode = proc.wait();
+
+			if (exitCode == 0 && output.find("healthy") != std::string::npos)
 			{
 				return;
 			}
@@ -84,88 +88,69 @@ protected:
 
 	static void StartContainer(const char* image = REDIS_IMAGE, const char* password = nullptr)
 	{
-		try
+		asio::io_context ctx;
+		if (password)
 		{
-			if (password)
+			Console << U"Starting Redis Docker container with auth...";
+			std::string healthCmd = "redis-cli -a " + std::string(password) + " --raw incr ping";
+			bp::process proc(
+				ctx,
+				s_dockerPath,
+				{"run", "--rm", "-d", "--name", REDIS_CONTAINER_NAME,
+				 "-p", "6379:6379", "--health-cmd", healthCmd,
+				 "--health-interval", "1s", "--health-timeout", "3s",
+				 "--health-retries", "5", image,
+				 "redis-server", "--requirepass", password}
+			);
+			int exitCode = proc.wait();
+			if (exitCode != 0)
 			{
-				Console << U"Starting Redis Docker container with auth...";
-				std::string healthCmd = "redis-cli -a " + std::string(password) + " --raw incr ping";
-				bp::child c(
-					s_dockerPath, "run",
-					"--rm",
-					"-d",
-					"--name", REDIS_CONTAINER_NAME,
-					"-p", "6379:6379",
-					"--health-cmd", healthCmd,
-					"--health-interval", "1s",
-					"--health-timeout", "3s",
-					"--health-retries", "5",
-					image,
-					"redis-server", "--requirepass", password
-				);
-				c.wait();
-				if (c.exit_code() != 0)
-				{
-					FAIL() << "Failed to start Redis container with auth";
-				}
+				FAIL() << "Failed to start Redis container with auth";
 			}
-			else
-			{
-				Console << U"Starting Redis Docker container...";
-				bp::child c(
-					s_dockerPath, "run",
-					"--rm",
-					"-d",
-					"--name", REDIS_CONTAINER_NAME,
-					"-p", "6379:6379",
-					"--health-cmd", "redis-cli --raw incr ping",
-					"--health-interval", "1s",
-					"--health-timeout", "3s",
-					"--health-retries", "5",
-					image
-				);
-				c.wait();
-				if (c.exit_code() != 0)
-				{
-					FAIL() << "Failed to start Redis container";
-				}
-			}
-
-			WaitForContainerHealthy(30s);
-
-			// パスワードを保存（未設定なら空に）
-			s_password = (password ? password : "");
-			s_started = true;
 		}
-		catch (const std::exception& e)
+		else
 		{
-			FAIL() << "Exception starting Redis container: " << e.what();
+			Console << U"Starting Redis Docker container...";
+			bp::process proc(
+				ctx,
+				s_dockerPath,
+				{"run", "--rm", "-d", "--name", REDIS_CONTAINER_NAME,
+				 "-p", "6379:6379", "--health-cmd", "redis-cli --raw incr ping",
+				 "--health-interval", "1s", "--health-timeout", "3s",
+				 "--health-retries", "5", image}
+			);
+			int exitCode = proc.wait();
+			if (exitCode != 0)
+			{
+				FAIL() << "Failed to start Redis container";
+			}
 		}
+
+		WaitForContainerHealthy(30s);
+
+		// パスワードを保存（未設定なら空に）
+		s_password = (password ? password : "");
+		s_started = true;
 	}
 
 	static void StopContainer()
 	{
 		if (!s_started) return;
-		try
-		{
-			Console << U"Stopping Redis Docker container...";
+		Console << U"Stopping Redis Docker container...";
 
-			bp::child c(s_dockerPath, "stop", REDIS_CONTAINER_NAME);
-			c.wait();
-		}
-		catch (const std::exception&)
-		{
-			// コンテナが存在しない場合は無視
-		}
+		asio::io_context ctx;
+		bp::process proc(ctx, s_dockerPath, {"stop", REDIS_CONTAINER_NAME});
+		proc.wait();
 		s_started = false;
 		s_password.clear();
 	}
 
 	// docker exec でコンテナ内の redis-cli を実行（RESP3 有効）
-	// 返り値: <exit_code, stdout>
+	// 返り値: <exitCode, stdout>
 	static std::pair<int, std::string> ExecRedisCli(const std::vector<std::string>& cliArgs)
 	{
-		bp::ipstream pipe_stream;
+		asio::io_context ctx;
+		asio::readable_pipe pipe(ctx);
 		std::vector<std::string> args;
 		args.reserve(8 + cliArgs.size());
 		args.push_back("exec");
@@ -180,41 +165,51 @@ protected:
 		}
 		for (const auto& a : cliArgs) args.push_back(a);
 
-		// 起動
-		bp::child c(
+		bp::process proc(
+			ctx,
 			s_dockerPath,
-			bp::args(args),
-			bp::std_out > pipe_stream
+			args,
+			bp::process_stdio{{}, pipe, {}}
 		);
 
-		// 出力取得
-		std::string output(
-			(std::istreambuf_iterator<char>(pipe_stream)),
-			std::istreambuf_iterator<char>()
-		);
-		c.wait();
-		return { c.exit_code(), std::move(output) };
+		boost::system::error_code ec;
+		std::string output;
+
+		asio::read(pipe, asio::dynamic_buffer(output), ec);
+		int exitCode = proc.wait();
+
+		return { exitCode, std::move(output) };
 	}
 
 	// publish ヘルパー（docker exec で redis-cli -3 PUBLISH）
 	static void Publish(std::string_view channel, std::string payload)
 	{
 #if SIV3D_PLATFORM(WINDOWS)
+		// Windowsでは、payload内の " を \" にエスケープしないと正しく動作しない
 		size_t pos = 0;
 		while ((pos = payload.find("\"", pos)) != std::string::npos)
 		{
 			payload.replace(pos, 1, "\\\"");
 			pos += 2;
 		}
-#endif
 
-		bp::child c(
+		// boost.process v1.89では空文字列を渡すと内部でエラーになるため、空文字列の場合は""に置き換える
+		// https://github.com/boostorg/process/issues/495
+		if (payload.empty())
+		{
+			payload = "\"\"";
+		}
+#endif
+		asio::io_context ctx;
+
+		bp::process proc(
+			ctx,
 			s_dockerPath,
-			"exec", REDIS_CONTAINER_NAME,
-			"redis-cli", "-3",
-			"PUBLISH", channel.data(), payload.data()
+			{ "exec", REDIS_CONTAINER_NAME, "redis-cli", "-3",
+				"PUBLISH", channel.data(), payload.data() }
 		);
-		c.wait();
-		ASSERT_EQ(c.exit_code(), 0);
+		int exitCode = proc.wait();
+
+		ASSERT_EQ(exitCode, 0);
 	}
 };
