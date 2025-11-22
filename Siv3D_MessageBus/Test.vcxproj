@@ -53,7 +53,7 @@
     <OutDir>$(ProjectDir)build\Test\debug\bin\</OutDir>
     <IntDir>$(ProjectDir)build\Test\debug\build\</IntDir>
     <TargetName>$(ProjectName)</TargetName>
-    <LocalDebuggerWorkingDirectory>$(ProjectDir)App</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>$(ProjectDir)test\App</LocalDebuggerWorkingDirectory>
     <IncludePath>$(ProjectDir)include\ThirdParty;$(SIV3D_0_6_16)\include;$(SIV3D_0_6_16)\include\ThirdParty;$(IncludePath)</IncludePath>
     <LibraryPath>$(SIV3D_0_6_16)\lib\Windows;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
@@ -61,7 +61,7 @@
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(ProjectDir)build\Test\release\bin\</OutDir>
     <IntDir>$(ProjectDir)build\Test\release\build\</IntDir>
-    <LocalDebuggerWorkingDirectory>$(ProjectDir)App</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>$(ProjectDir)test\App</LocalDebuggerWorkingDirectory>
     <IncludePath>$(ProjectDir)include\ThirdParty;$(SIV3D_0_6_16)\include;$(SIV3D_0_6_16)\include\ThirdParty;$(IncludePath)</IncludePath>
     <LibraryPath>$(SIV3D_0_6_16)\lib\Windows;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
@@ -90,7 +90,7 @@
       <SubSystem>Windows</SubSystem>
       <DelayLoadDLLs>advapi32.dll;crypt32.dll;dwmapi.dll;gdi32.dll;imm32.dll;ole32.dll;oleaut32.dll;opengl32.dll;shell32.dll;shlwapi.dll;user32.dll;winmm.dll;ws2_32.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
       <AdditionalLibraryDirectories>$(ProjectDir)vcpkg_installed\x64-windows-static\x64-windows-static\debug\lib;$(ProjectDir)build\Siv3D_MessageBus\debug\bin;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>ws2_32.lib;wsock32.lib;mswsock.lib;%(AdditionalDependencies);$(ProjectDir)vcpkg_installed\x64-windows-static\x64-windows-static\src\*.c.obj</AdditionalDependencies>
+      <AdditionalDependencies>ntdll.lib;ws2_32.lib;wsock32.lib;mswsock.lib;%(AdditionalDependencies);$(ProjectDir)vcpkg_installed\x64-windows-static\x64-windows-static\src\*.c.obj</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -107,7 +107,7 @@
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <DisableSpecificWarnings>26451;26812;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
-      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles>%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <BuildStlModules>false</BuildStlModules>
     </ClCompile>
@@ -117,7 +117,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <DelayLoadDLLs>advapi32.dll;crypt32.dll;dwmapi.dll;gdi32.dll;imm32.dll;ole32.dll;oleaut32.dll;opengl32.dll;shell32.dll;shlwapi.dll;user32.dll;winmm.dll;ws2_32.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
-      <AdditionalDependencies>%(AdditionalDependencies);hiredis.lib;ws2_32.lib;wsock32.lib;mswsock.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);hiredis.lib;ntdll.lib;ws2_32.lib;wsock32.lib;mswsock.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

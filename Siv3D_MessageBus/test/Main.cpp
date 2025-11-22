@@ -7,6 +7,7 @@
 SIV3D_SET(s3d::EngineOption::Renderer::Headless)
 
 #if SIV3D_PLATFORM(WINDOWS)
+#include <Siv3D/Windows/Windows.hpp>
 /// @see https://discord.com/channels/443310697397354506/998714158621147237/1303965339045855232
 class AttachToParentConsole
 {
