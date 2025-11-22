@@ -13,7 +13,6 @@ extern "C"
 #include <Siv3D/Duration.hpp>
 #include <Siv3D/Timer.hpp>
 #include <Siv3D/Stopwatch.hpp>
-#include <Siv3D/Math.hpp>
 #include <Siv3D/LicenseManager.hpp>
 
 using namespace s3d;
