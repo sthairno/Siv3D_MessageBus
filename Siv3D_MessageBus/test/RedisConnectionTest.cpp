@@ -166,7 +166,8 @@ TEST_F(RedisConnectionBasic, InvalidHost)
 	MessageBus::RedisConnection conn{ { U"192.0.2.1", 6379, none } };
 
 	EXPECT_EQ(conn.state(), MessageBus::RedisConnectionState::Connecting);
-	EXPECT_EQ(WaitForNextState(conn, 60s), MessageBus::RedisConnectionState::Failed);
+	// OSによってタイムアウト判定に時間がかかるので、長めにとっておく
+	EXPECT_EQ(WaitForNextState(conn, 300s), MessageBus::RedisConnectionState::Failed);
 	EXPECT_TRUE(conn.isReconnecting());
 }
 

@@ -1,12 +1,12 @@
 #pragma once
 #include <gtest/gtest.h>
-#include <boost/process/v1.hpp>
+#include <boost/process.hpp>
 #include <Siv3D.hpp>
 #include <MessageBus/RedisConnection.hpp>
 #include <MessageBus/RedisConnectionState.hpp>
 #include <string>
 
-namespace bp = boost::process::v1;
+namespace bp = boost::process;
 
 constexpr auto REDIS_IMAGE = "redis:7-alpine";
 constexpr auto REDIS_OLD_IMAGE = "redis:5-alpine"; // Not supported RESP3
@@ -199,12 +199,14 @@ protected:
 	// publish ヘルパー（docker exec で redis-cli -3 PUBLISH）
 	static void Publish(std::string_view channel, std::string payload)
 	{
+#if SIV3D_PLATFORM(WINDOWS)
 		size_t pos = 0;
 		while ((pos = payload.find("\"", pos)) != std::string::npos)
 		{
 			payload.replace(pos, 1, "\\\"");
 			pos += 2;
 		}
+#endif
 
 		bp::child c(
 			s_dockerPath,
