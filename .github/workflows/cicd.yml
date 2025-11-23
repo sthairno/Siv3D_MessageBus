@@ -9,13 +9,12 @@ on:
 
 env:
   PYTHONIOENCODING: utf-8
+  USERNAME: ${{ github.repository_owner }}
+  FEED_URL: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+  VCPKG_BINARY_SOURCES: clear;nuget,https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json,readwrite
 
 jobs:
   windows-build-and-test:
-    env:
-      USERNAME: ${{ github.repository_owner }}
-      FEED_URL: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
-      VCPKG_BINARY_SOURCES: clear;nuget,https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json,readwrite
     permissions:
       contents: read
       packages: write
@@ -91,6 +90,72 @@ jobs:
       - name: Exit with SIV3D_EXIT_CODE
         shell: bash
         run: exit ${{ steps.runtest.outputs.SIV3D_EXIT_CODE }}
+
+  linux-build-and-test:
+    permissions:
+      contents: read
+      packages: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download and verify Siv3D deb package
+        shell: bash
+        run: |
+          set -euxo pipefail
+          curl "https://drive.usercontent.google.com/download?id=1OH0AIiAWX-4136wVmJ9XaqrLi4m8ejR3&confirm=t" -o libsiv3d-dev.deb
+          MIME_TYPE=$(file -b --mime-type libsiv3d-dev.deb)
+          if [ "$MIME_TYPE" != "application/vnd.debian.binary-package" ]; then
+            echo "Unexpected MIME type: ${MIME_TYPE}"
+            exit 1
+          fi
+
+      - name: Install Siv3D deb package
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ./libsiv3d-dev.deb
+
+      - name: Install mono for NuGet
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get install -y mono-complete
+
+      - name: Configure NuGet and vcpkg
+        shell: bash
+        run: |
+          set -euxo pipefail
+          NUGET_EXE_PATH=$(vcpkg fetch nuget | tail -n 1)
+          mono "$NUGET_EXE_PATH" \
+            sources add \
+            -Source "${{ env.FEED_URL }}" \
+            -StorePasswordInClearText \
+            -Name GitHubPackages \
+            -UserName "${{ env.USERNAME }}" \
+            -Password "${{ secrets.GITHUB_TOKEN }}"
+          mono "$NUGET_EXE_PATH" \
+            setapikey "${{ secrets.GITHUB_TOKEN }}" \
+            -Source "${{ env.FEED_URL }}"
+          vcpkg integrate install
+
+      - name: Build Siv3D_MessageBus (Debug)
+        working-directory: Siv3D_MessageBus
+        run: python3 scripts/build.py Siv3D_MessageBus Debug
+
+      - name: Build Siv3D_MessageBus (Release)
+        working-directory: Siv3D_MessageBus
+        run: python3 scripts/build.py Siv3D_MessageBus Release
+
+      - name: Build Test (Debug)
+        working-directory: Siv3D_MessageBus
+        run: python3 scripts/build.py Test Debug
+
+      - name: Run Test (Debug)
+        working-directory: Siv3D_MessageBus
+        run: python3 scripts/test.py Debug
 
   deploy:
     if: github.ref == 'refs/heads/main'
