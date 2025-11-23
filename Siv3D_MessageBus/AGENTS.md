@@ -4,6 +4,7 @@
 
 - Repository contains the C++ library project `Siv3D_MessageBus` and a test project `Test`.
 - The `Test` project uses Google Test and depends on `Siv3D_MessageBus`; building `Test` also builds the library automatically.
+- The project targets both Windows (Visual Studio/MSBuild) and Linux (CMake/Ninja); adjust required tools and environment variables per OS.
 
 ## Project structure
 
@@ -28,9 +29,23 @@ extern "C" {
 
 ## Requirements
 
-- Visual Studio 2022 with C++ tools
-- `SIV3D_0_6_16` environment variable is set (Windows only)
-- Dependencies installed via vcpkg
+### Common
+
+- Python 3.9+ (for helper scripts), Git, and CMake/vcpkg tooling available on PATH
+- Dependencies installed via vcpkg (Siv3D core, fmt, hiredis, etc.)
+
+### Windows (Visual Studio)
+
+- Visual Studio 2022 with C++ Desktop Development workload
+- `SIV3D_0_6_16` environment variable configured
+- Ability to run the build scripts from MSBuild or Developer PowerShell
+
+### Linux (CMake)
+
+- GCC 11+ or Clang 14+ with the corresponding standard library
+- CMake 3.24+, Ninja (or Make), and Python 3.9+ available on PATH
+- `VCPKG_ROOT` configured so CMake can locate the vcpkg toolchain file
+- Siv3D SDK installed under `/usr/local` (environment variables such as `SIV3D_0_6_16` are not required)
 
 ## Testing instructions
 
