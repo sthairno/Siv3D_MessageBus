@@ -61,11 +61,11 @@ jobs:
 
       - name: Build Siv3D_MessageBus (Debug)
         working-directory: Siv3D_MessageBus
-        run: python3 scripts/msbuild.py Siv3D_MessageBus Debug
+        run: python3 scripts/build.py Siv3D_MessageBus Debug
 
       - name: Build Siv3D_MessageBus (Release)
         working-directory: Siv3D_MessageBus
-        run: python3 scripts/msbuild.py Siv3D_MessageBus Release
+        run: python3 scripts/build.py Siv3D_MessageBus Release
 
       - name: Package distribution
         working-directory: Siv3D_MessageBus
@@ -81,12 +81,12 @@ jobs:
       
       - name: Build Test (Debug)
         working-directory: Siv3D_MessageBus
-        run: python3 scripts/msbuild.py Test Debug
+        run: python3 scripts/build.py Test Debug
 
       - name: Run Test (Debug)
         id: runtest
         working-directory: Siv3D_MessageBus
-        run: python3 scripts/runtest.py Debug
+        run: python3 scripts/test.py Debug
       
       - name: Exit with SIV3D_EXIT_CODE
         shell: bash
