@@ -22,20 +22,14 @@ extern "C" {
 
 ## Build commands
 
-- Command line: `python3 scripts/msbuild.py <ProjectName> <Configuration> [--platform x64]`
-  - ProjectName: `Siv3D_MessageBus` or `Test`（`.vcxproj` 省略可）
-  - Configuration: `Debug` または `Release`
-  - 既定では `vswhere.exe` を用いて最新の MSBuild を検出する
-
-## Build output
-
-- Siv3D_MessageBus: `build/Siv3D_MessageBus/debug/bin/siv3d-messagebus_d.lib` (Debug) / `build/Siv3D_MessageBus/release/bin/siv3d-messagebus.exe` (Release)
-- Test: `build/Test/debug/bin/Test.exe` (Debug) / `build/Test/release/bin/Test.exe` (Release)
+- Command line: `python3 scripts/build.py <ProjectName> <Configuration>`
+  - ProjectName: `Siv3D_MessageBus` or `Test`
+  - Configuration: `Debug` or `Release`
 
 ## Requirements
 
 - Visual Studio 2022 with C++ tools
-- `SIV3D_0_6_16` environment variable is set
+- `SIV3D_0_6_16` environment variable is set (Windows only)
 - Dependencies installed via vcpkg
 
 ## Testing instructions
@@ -51,15 +45,15 @@ extern "C" {
 
 ```bash
 # Debug configuration (default)
-python3 scripts/runtest.py
+python3 scripts/test.py
 
 # Run with specific configuration
-python3 scripts/runtest.py Debug
-python3 scripts/runtest.py Release
+python3 scripts/test.py Debug
+python3 scripts/test.py Release
 
 # Pass GoogleTest arguments
-python3 scripts/runtest.py Debug --gtest_list_tests
-python3 scripts/runtest.py Debug --gtest_filter=TestSuite.*
+python3 scripts/test.py Debug --gtest_list_tests
+python3 scripts/test.py Debug --gtest_filter=TestSuite.*
 ```
 
 ### Build requirements for testing
@@ -71,8 +65,8 @@ python3 scripts/runtest.py Debug --gtest_filter=TestSuite.*
 
 ```bash
 # Build the Test project
-python3 scripts/msbuild.py Test Debug    # Debug configuration
-python3 scripts/msbuild.py Test Release  # Release configuration
+python3 scripts/build.py Test Debug    # Debug configuration
+python3 scripts/build.py Test Release  # Release configuration
 ```
 
 #### Build outputs (tests)
@@ -112,7 +106,7 @@ TEST(TestSuiteName, TestCaseName) {
 
 ### Troubleshooting
 
-1. `Test.exe` not found: build with `python3 scripts/msbuild.py Test Debug`
+1. `Test.exe` not found: build with `python3 scripts/build.py Test Debug`
 2. No console output: ensure you are running from PowerShell
 3. Build failures: confirm dependencies are installed via vcpkg
 4. New test not compiling: ensure the new `.cpp` is added to `Test.vcxproj`
