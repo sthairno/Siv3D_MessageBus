@@ -123,9 +123,9 @@ def build_with_cmake(project_root: Path, project_stem: str, configuration: str) 
         )
         return 1
 
-    vcpkg_root = os.environ.get("VCPKG_ROOT")
+    vcpkg_root = os.environ.get("VCPKG_ROOT") or os.environ.get("VCPKG_INSTALLATION_ROOT")
     if not vcpkg_root:
-        print("Error: Environment variable VCPKG_ROOT is not set.", file=sys.stderr)
+        print("Error: Environment variable VCPKG_ROOT or VCPKG_INSTALLATION_ROOT is not set.", file=sys.stderr)
         return 1
 
     toolchain_file = Path(vcpkg_root) / "scripts" / "buildsystems" / "vcpkg.cmake"
