@@ -14,7 +14,7 @@ env:
   VCPKG_BINARY_SOURCES: clear;nuget,https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json,readwrite
 
 jobs:
-  windows-build-and-test:
+  windows-build:
     permissions:
       contents: read
       packages: write
@@ -78,18 +78,6 @@ jobs:
           if-no-files-found: error
           retention-days: 1
       
-      - name: Build Test (Debug)
-        working-directory: Siv3D_MessageBus
-        run: python3 scripts/build.py Test Debug
-
-      - name: Run Test (Debug)
-        id: runtest
-        working-directory: Siv3D_MessageBus
-        run: python3 scripts/test.py Debug
-      
-      - name: Exit with SIV3D_EXIT_CODE
-        shell: bash
-        run: exit ${{ steps.runtest.outputs.SIV3D_EXIT_CODE }}
 
   linux-build-and-test:
     permissions:
@@ -153,7 +141,7 @@ jobs:
 
   deploy:
     if: github.ref == 'refs/heads/main'
-    needs: windows-build-and-test
+    needs: windows-build
     runs-on: ubuntu-latest
     permissions:
       contents: read
