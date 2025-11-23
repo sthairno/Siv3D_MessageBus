@@ -111,18 +111,12 @@ jobs:
             exit 1
           fi
 
-      - name: Install Siv3D deb package
+      - name: Install dependencies
         shell: bash
         run: |
           set -euxo pipefail
           sudo apt-get update
-          sudo apt-get install -y ./libsiv3d-dev.deb
-
-      - name: Install mono for NuGet
-        shell: bash
-        run: |
-          set -euxo pipefail
-          sudo apt-get install -y mono-complete
+          sudo apt-get install -y ./libsiv3d-dev.deb mono-complete libhiredis-dev
 
       - name: Configure NuGet and vcpkg
         shell: bash
