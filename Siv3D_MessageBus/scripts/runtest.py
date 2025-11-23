@@ -40,10 +40,20 @@ def main() -> int:
     script_root = Path(__file__).resolve().parent
     project_root = script_root.parent
 
+    if sys.platform == "darwin":
+        print("Error: macOS is not supported yet.", file=sys.stderr)
+        return 1
+    if not (sys.platform.startswith("win") or sys.platform.startswith("linux")):
+        print(f"Error: Unsupported platform '{sys.platform}'.", file=sys.stderr)
+        return 1
+
+    if sys.platform.startswith("win"):
     if configuration == "Debug":
         test_exe = project_root / "build" / "Test" / "debug" / "bin" / "Test.exe"
     else:
         test_exe = project_root / "build" / "Test" / "release" / "bin" / "Test.exe"
+    else:
+        test_exe = project_root / "build" / configuration / "siv3d-messagebus-tests"
 
     if not test_exe.exists():
         print(f"Error: Test executable not found: {test_exe}", file=sys.stderr)
@@ -57,7 +67,7 @@ def main() -> int:
     work_dir = project_root / "test" / "App"
 
     print(f"Running tests: configuration={configuration}")
-    print(f"Test.exe: {test_exe}")
+    print(f"Test binary: {test_exe}")
     print(f"Working directory: {work_dir}")
     if extra_args:
         print(f"Additional arguments: {' '.join(extra_args)}")
