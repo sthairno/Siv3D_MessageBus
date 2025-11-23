@@ -48,10 +48,10 @@ def main() -> int:
         return 1
 
     if sys.platform.startswith("win"):
-    if configuration == "Debug":
-        test_exe = project_root / "build" / "Test" / "debug" / "bin" / "Test.exe"
-    else:
-        test_exe = project_root / "build" / "Test" / "release" / "bin" / "Test.exe"
+        if configuration == "Debug":
+            test_exe = project_root / "build" / "Test" / "debug" / "bin" / "Test.exe"
+        else:
+            test_exe = project_root / "build" / "Test" / "release" / "bin" / "Test.exe"
     else:
         test_exe = project_root / "build" / configuration / "siv3d-messagebus-tests"
 
