@@ -116,7 +116,7 @@ jobs:
         run: |
           set -euxo pipefail
           sudo apt-get update
-          sudo apt-get install -y ./libsiv3d-dev.deb mono-complete libhiredis-dev
+          sudo apt-get install -y ./libsiv3d-dev.deb mono-complete libhiredis-dev libgtest-dev
 
       - name: Configure NuGet and vcpkg
         shell: bash
