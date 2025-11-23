@@ -8,7 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 find_package(Siv3D REQUIRED)
 find_package(Hiredis 1.1.0 REQUIRED)
 find_package(GTest REQUIRED)
-find_package(Boost REQUIRED COMPONENTS filesystem system)
+find_package(Boost REQUIRED COMPONENTS filesystem system process)
 
 get_target_property(SIV3D_INCLUDE_DIRS Siv3D::Siv3D INTERFACE_INCLUDE_DIRECTORIES)
 
@@ -46,6 +46,7 @@ if(SIV3D_MESSAGEBUS_BUILD_TESTS)
     target_include_directories(siv3d-messagebus-tests
         PRIVATE
             ${PROJECT_SOURCE_DIR}/test
+            ${BOOST_INCLUDE_DIRS}
     )
     target_compile_options(siv3d-messagebus-tests PRIVATE ${GTEST_CFLAGS})
     target_link_libraries(siv3d-messagebus-tests
@@ -55,6 +56,7 @@ if(SIV3D_MESSAGEBUS_BUILD_TESTS)
             GTest::gtest
             Boost::filesystem
             Boost::system
+            Boost::process
     )
 
     add_custom_command(
