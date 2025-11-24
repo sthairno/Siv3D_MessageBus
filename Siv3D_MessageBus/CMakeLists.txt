@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
 project(Siv3D_MessageBus LANGUAGES CXX)
 
+############################################################
+# Setup
+############################################################
+
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
@@ -18,8 +22,16 @@ endif()
 
 find_package(Siv3D REQUIRED)
 find_package(Hiredis 1.1.0 REQUIRED)
+if(SIV3D_MESSAGEBUS_BUILD_TESTS)
+    find_package(GTest REQUIRED)
+    find_package(Boost REQUIRED COMPONENTS filesystem system process)
+endif()
 
 get_target_property(SIV3D_INCLUDE_DIRS Siv3D::Siv3D INTERFACE_INCLUDE_DIRECTORIES)
+
+############################################################
+# Create a library
+############################################################
 
 add_library(siv3d-messagebus SHARED
     src/MessageBus.cpp
@@ -27,20 +39,29 @@ add_library(siv3d-messagebus SHARED
     src/generated/HiredisLicense.cpp
 )
 add_library(siv3d-messagebus::siv3d-messagebus ALIAS siv3d-messagebus)
+
 target_include_directories(siv3d-messagebus
     PUBLIC
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/ThirdParty>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     PRIVATE
+        # Siv3Dは静的ライブラリしかないため、ヘッダーファイルの追加だけ行う
         ${SIV3D_INCLUDE_DIRS}
-        ${HIREDIS_INCLUDE_DIRS}
 )
-# target_link_options(siv3d-messagebus PRIVATE "LINKER:--allow-shlib-undefined")
+target_link_libraries(siv3d-messagebus
+    PUBLIC
+        ${HIREDIS_LIB_HIREDIS}
+)
+
 set_target_properties(siv3d-messagebus PROPERTIES
     VERSION "${SIV3D_MESSAGEBUS_VERSION}"
     SOVERSION "${SIV3D_MESSAGEBUS_SOVERSION}"
     DEBUG_POSTFIX "d"
 )
+
+############################################################
+# Install
+############################################################
 
 set(SIV3D_MESSAGEBUS_INSTALL_CONFIGDIR "${CMAKE_INSTALL_LIBDIR}/cmake/Siv3D_MessageBus")
 
@@ -90,10 +111,11 @@ install(
     DESTINATION "${SIV3D_MESSAGEBUS_INSTALL_CONFIGDIR}"
 )
 
-if(SIV3D_MESSAGEBUS_BUILD_TESTS)
-    find_package(GTest REQUIRED)
-    find_package(Boost REQUIRED COMPONENTS filesystem system process)
+############################################################
+# Test
+############################################################
 
+if(SIV3D_MESSAGEBUS_BUILD_TESTS)
     enable_testing()
 
     add_executable(siv3d-messagebus-tests
@@ -110,9 +132,8 @@ if(SIV3D_MESSAGEBUS_BUILD_TESTS)
     target_compile_options(siv3d-messagebus-tests PRIVATE ${GTEST_CFLAGS})
     target_link_libraries(siv3d-messagebus-tests
         PRIVATE
-            siv3d-messagebus
             Siv3D::Siv3D
-            ${HIREDIS_LIB_HIREDIS}
+            siv3d-messagebus
             GTest::gtest
             Boost::filesystem
             Boost::system
@@ -141,4 +162,4 @@ endif()
 
 # Example usage from another CMake project:
 #   find_package(Siv3D_MessageBus CONFIG REQUIRED)
-#   target_link_libraries(your_target PRIVATE siv3d-messagebus::siv3d-messagebus)
+#   target_link_libraries(your_target PRIVATE Siv3D::Siv3D siv3d-messagebus::siv3d-messagebus)
