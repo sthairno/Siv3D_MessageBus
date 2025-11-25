@@ -47,6 +47,7 @@ TEST_F(RedisConnectionBasic, ConnectionSuccess)
 
 	EXPECT_EQ(conn.state(), MessageBus::RedisConnectionState::Connecting);
 	EXPECT_EQ(WaitForNextState(conn, 10s), MessageBus::RedisConnectionState::HelloSent);
+	EXPECT_EQ(WaitForNextState(conn, 10s), MessageBus::RedisConnectionState::ClientTrackingSent);
 	EXPECT_EQ(WaitForNextState(conn, 10s), MessageBus::RedisConnectionState::Connected);
 	EXPECT_GE(connectedCount, 1);
 	EXPECT_GE(readyCount, 1);
@@ -80,6 +81,7 @@ TEST_F(RedisConnectionBasic, ReconnectOnDisconnect)
 	EXPECT_TRUE(conn.isReconnecting());
 	EXPECT_EQ(WaitForNextState(conn, 10s), MessageBus::RedisConnectionState::Connecting);
 	EXPECT_EQ(WaitForNextState(conn, 10s), MessageBus::RedisConnectionState::HelloSent);
+	EXPECT_EQ(WaitForNextState(conn, 10s), MessageBus::RedisConnectionState::ClientTrackingSent);
 	EXPECT_EQ(WaitForNextState(conn, 10s), MessageBus::RedisConnectionState::Connected);
 	EXPECT_FALSE(conn.isReconnecting());
 	EXPECT_EQ(connectedCount, 2);
@@ -148,15 +150,9 @@ TEST_F(RedisConnectionBasic, DisconnectWhileHandshaking)
 
 	StopContainer();
 
-	auto state = WaitForNextState(conn, 10s);
-	EXPECT_TRUE(state == MessageBus::RedisConnectionState::Failed ||
-				state == MessageBus::RedisConnectionState::Connected);
-	if (state == MessageBus::RedisConnectionState::Connected)
-	{
-		EXPECT_EQ(WaitForNextState(conn, 30s), MessageBus::RedisConnectionState::Failed);
-	}
+	EXPECT_TRUE(WaitForState(conn, MessageBus::RedisConnectionState::Failed, 30s));
 	EXPECT_TRUE(conn.isReconnecting());
-	EXPECT_EQ(WaitForNextState(conn, 10s), MessageBus::RedisConnectionState::Connecting);
+	EXPECT_EQ(WaitForNextState(conn, 30s), MessageBus::RedisConnectionState::Connecting);
 
 	StartContainer();
 }
@@ -236,6 +232,7 @@ TEST_F(RedisConnectionAuth, ConnectionWithPassword)
 	EXPECT_EQ(conn.state(), MessageBus::RedisConnectionState::Connecting);
 	EXPECT_EQ(WaitForNextState(conn, 10s), MessageBus::RedisConnectionState::AuthSent);
 	EXPECT_EQ(WaitForNextState(conn, 10s), MessageBus::RedisConnectionState::HelloSent);
+	EXPECT_EQ(WaitForNextState(conn, 10s), MessageBus::RedisConnectionState::ClientTrackingSent);
 	EXPECT_EQ(WaitForNextState(conn, 10s), MessageBus::RedisConnectionState::Connected);
 	EXPECT_GE(connectedCount, 1);
 	EXPECT_GE(readyCount, 1);

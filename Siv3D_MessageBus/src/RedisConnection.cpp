@@ -294,6 +294,22 @@ namespace MessageBus
 		}
 		else
 		{
+			self->sendClientTracking();
+		}
+	}
+
+	void RedisConnection::onClientTrackingCallback(redisAsyncContext* ac, redisReply* reply, RedisConnection* self)
+	{
+		if (!reply)
+			return;
+
+		if (reply->type == REDIS_REPLY_ERROR)
+		{
+			self->failure(U"Protocol Error: {}"_fmt(Unicode::FromUTF8(reply->str)), false);
+			redisAsyncDisconnect(ac);
+		}
+		else
+		{
 			self->onReady(ac, self);
 		}
 	}
@@ -355,5 +371,20 @@ namespace MessageBus
 			reinterpret_cast<redisCallbackFn*>(onPingCallback), this,
 			"PING"
 		);
+	}
+
+	void RedisConnection::sendClientTracking()
+	{
+		if (!m_context)
+		{
+			return;
+		}
+
+		redisAsyncCommand(
+			m_context,
+			reinterpret_cast<redisCallbackFn*>(onClientTrackingCallback), this,
+			"CLIENT TRACKING ON BCAST NOLOOP"
+		);
+		setState(RedisConnectionState::ClientTrackingSent);
 	}
 }

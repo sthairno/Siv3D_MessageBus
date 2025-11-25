@@ -83,12 +83,14 @@ namespace MessageBus
 		void sendHello();
 		void sendAuth();
 		void sendPing();
+		void sendClientTracking();
 
 		// コールバック
 		static void onConnectCallback(redisAsyncContext* ac, int status);
 		static void onDisconnectCallback(const redisAsyncContext* ac, int status);
 		static void onHelloCallback(redisAsyncContext* ac, redisReply* reply, RedisConnection* self);
 		static void onAuthCallback(redisAsyncContext* ac, redisReply* reply, RedisConnection* self);
+		static void onClientTrackingCallback(redisAsyncContext* ac, redisReply* reply, RedisConnection* self);
 		static void onReady(redisAsyncContext* ac, RedisConnection* self);
 		static void onPingCallback(redisAsyncContext* ac, redisReply* reply, RedisConnection* self);
 		static void onPushCallback(redisAsyncContext* ac, redisReply* reply);
