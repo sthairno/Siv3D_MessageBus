@@ -14,6 +14,8 @@ extern "C" {
 #include <Siv3D/Duration.hpp>
 #include <Siv3D/Timer.hpp>
 #include <Siv3D/Stopwatch.hpp>
+#include <Siv3D/Array.hpp>
+#include <string>
 
 namespace MessageBus
 {
@@ -26,7 +28,7 @@ namespace MessageBus
 		std::function<void(redisAsyncContext*)> onConnect;
 		std::function<void(redisAsyncContext*)> onReady;
 		std::function<void()> onDisconnect;
-		std::function<void(redisAsyncContext*, redisReply*)> onPush;
+		std::function<void(redisAsyncContext*, const s3d::Array<std::string>&)> onInvalidate;
 	};
 
 	class RedisConnection
@@ -71,7 +73,7 @@ namespace MessageBus
 		std::function<void(redisAsyncContext*)> m_onConnect;
 		std::function<void(redisAsyncContext*)> m_onReady;
 		std::function<void()> m_onDisconnect;
-		std::function<void(redisAsyncContext*, redisReply*)> m_onPush;
+		std::function<void(redisAsyncContext*, const s3d::Array<std::string>&)> m_onInvalidate;
 
 	private:
 

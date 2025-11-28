@@ -14,6 +14,9 @@ extern "C"
 #include <Siv3D/Timer.hpp>
 #include <Siv3D/Stopwatch.hpp>
 #include <Siv3D/LicenseManager.hpp>
+#include <Siv3D/Array.hpp>
+#include <string>
+#include <string_view>
 
 using namespace s3d;
 
@@ -31,7 +34,7 @@ namespace MessageBus
 		m_heartbeatInterval(options.heartbeatInterval),
 		m_state(RedisConnectionState::Disconnected),
 		m_onConnect(options.onConnect), m_onReady(options.onReady),
-		m_onDisconnect(options.onDisconnect), m_onPush(options.onPush)
+		m_onDisconnect(options.onDisconnect), m_onInvalidate(options.onInvalidate)
 	{
 		const auto& licenses = LicenseManager::EnumLicenses();
 		const auto& hiredisLicense = Generated::HiredisLicense();
@@ -339,8 +342,72 @@ namespace MessageBus
 	{
 		if (!ac || !reply) return;
 		RedisConnection* self = reinterpret_cast<RedisConnection*>(ac->data);
-		if (!self || !self->m_onPush) return;
-		self->m_onPush(ac, reply);
+		if (!self || !self->m_onInvalidate) return;
+
+		// RESP3 PUSH メッセージの形式をチェック
+		if (reply->type != REDIS_REPLY_PUSH)
+		{
+			return;
+		}
+
+		if (reply->elements < 2)
+		{
+			Logger << U"[Redis][DEBUG] PUSH message has less than 2 elements: " << reply->elements;
+			return;
+		}
+
+		// 最初の要素が "invalidate" かチェック
+		auto* kind = reply->element[0];
+		if (!kind || kind->type != REDIS_REPLY_STRING)
+		{
+			Logger << U"[Redis][DEBUG] PUSH message first element is not a string";
+			return;
+		}
+
+		std::string_view kindView{ kind->str, static_cast<size_t>(kind->len) };
+		if (kindView.compare("invalidate") != 0)
+		{
+			// invalidate 以外の PUSH メッセージは無視
+			Logger << U"[Redis][DEBUG] PUSH message kind is not invalidate: " << Unicode::FromUTF8(std::string(kindView));
+			return;
+		}
+
+		// 2番目の要素がキー配列かチェック
+		auto* arr = reply->element[1];
+		if (!arr || arr->type != REDIS_REPLY_ARRAY || arr->elements == 0)
+		{
+			Logger << U"[Redis][DEBUG] PUSH message second element is not a non-empty array";
+			return;
+		}
+
+		// キー配列を構築
+		Array<std::string> keys;
+		for (size_t i = 0; i < arr->elements; ++i)
+		{
+			auto* k = arr->element[i];
+			if (k && k->type == REDIS_REPLY_STRING)
+			{
+				keys.emplace_back(k->str, static_cast<size_t>(k->len));
+			}
+		}
+
+		// キーが1件以上あり、コールバックが設定されていれば呼ぶ
+		if (!keys.isEmpty())
+		{
+			if (self->m_onInvalidate)
+			{
+				Logger << U"[Redis][DEBUG] Calling onInvalidate with " << keys.size() << U" keys";
+				self->m_onInvalidate(ac, keys);
+			}
+			else
+			{
+				Logger << U"[Redis][DEBUG] onInvalidate callback is not set";
+			}
+		}
+		else
+		{
+			Logger << U"[Redis][DEBUG] No valid keys found in invalidate message";
+		}
 	}
 
 	// ===== アクション実装 =====

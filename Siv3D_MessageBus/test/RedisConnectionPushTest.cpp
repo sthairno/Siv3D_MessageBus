@@ -5,46 +5,6 @@ extern "C" {
 #include <hiredis/async.h>
 }
 
-namespace
-{
-	bool parseInvalidatePush(redisReply* reply)
-	{
-		if (!reply || reply->type != REDIS_REPLY_PUSH || reply->elements < 2)
-		{
-			return false;
-		}
-
-		auto* kind = reply->element[0];
-		if (!kind || kind->type != REDIS_REPLY_STRING)
-		{
-			return false;
-		}
-
-		std::string_view kindView{ kind->str, static_cast<size_t>(kind->len) };
-		if (kindView.compare("invalidate") != 0)
-		{
-			return false;
-		}
-
-		auto* arr = reply->element[1];
-		if (!arr || arr->type != REDIS_REPLY_ARRAY || arr->elements == 0)
-		{
-			return false;
-		}
-
-		// 少なくとも 1 件の文字列キーが含まれていれば true
-		for (size_t i = 0; i < arr->elements; ++i)
-		{
-			auto* k = arr->element[i];
-			if (k && k->type == REDIS_REPLY_STRING)
-			{
-				return true;
-			}
-		}
-		return false;
-	}
-}
-
 // =========================================================================
 // RESP3 PUSH: CLIENT TRACKING の invalidate を受信できること
 // =========================================================================
@@ -67,6 +27,7 @@ protected:
 TEST_F(RedisConnectionPush, ReceiveInvalidatePush)
 {
 	int invalidateCount = 0;
+	std::string receivedKey;
 
 	MessageBus::RedisConnection conn({
 		.ip = U"127.0.0.1",
@@ -75,10 +36,11 @@ TEST_F(RedisConnectionPush, ReceiveInvalidatePush)
 		.heartbeatInterval = 1s,
 		.onConnect = nullptr,
 		.onDisconnect = nullptr,
-		.onPush = [&](redisAsyncContext*, redisReply* r) {
-			if (parseInvalidatePush(r))
+		.onInvalidate = [&](redisAsyncContext*, const s3d::Array<std::string>& keys) {
+			++invalidateCount;
+			if (!keys.isEmpty())
 			{
-				++invalidateCount;
+				receivedKey = keys[0];
 			}
 		}
 	});
@@ -93,11 +55,13 @@ TEST_F(RedisConnectionPush, ReceiveInvalidatePush)
 	WaitUntil(conn, [&] { return invalidateCount >= 1; }, 5s);
 
 	EXPECT_GE(invalidateCount, 1);
+	EXPECT_EQ(receivedKey, "invalidate:key");
 }
 
 TEST_F(RedisConnectionPush, ReceiveInvalidatePushAfterReconnect)
 {
 	int invalidateCount = 0;
+	std::string receivedKey;
 
 	MessageBus::RedisConnection conn({
 		.ip = U"127.0.0.1",
@@ -106,10 +70,11 @@ TEST_F(RedisConnectionPush, ReceiveInvalidatePushAfterReconnect)
 		.heartbeatInterval = 1s,
 		.onConnect = nullptr,
 		.onDisconnect = nullptr,
-		.onPush = [&](redisAsyncContext*, redisReply* r) {
-			if (parseInvalidatePush(r))
+		.onInvalidate = [&](redisAsyncContext*, const s3d::Array<std::string>& keys) {
+			++invalidateCount;
+			if (!keys.isEmpty())
 			{
-				++invalidateCount;
+				receivedKey = keys[0];
 			}
 		}
 	});
@@ -136,6 +101,7 @@ TEST_F(RedisConnectionPush, ReceiveInvalidatePushAfterReconnect)
 
 	EXPECT_TRUE(WaitUntil(conn, [&] { return invalidateCount >= before + 1; }, 5s));
 	EXPECT_GE(invalidateCount, before + 1);
+	EXPECT_EQ(receivedKey, "invalidate:key:reconnect");
 }
 
 
