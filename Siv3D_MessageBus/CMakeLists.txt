@@ -36,6 +36,8 @@ get_target_property(SIV3D_INCLUDE_DIRS Siv3D::Siv3D INTERFACE_INCLUDE_DIRECTORIE
 add_library(siv3d-messagebus SHARED
     src/MessageBus.cpp
     src/RedisConnection.cpp
+    src/SharedVariable.cpp
+    src/SharedVariableImpl.cpp
     src/generated/HiredisLicense.cpp
 )
 add_library(siv3d-messagebus::siv3d-messagebus ALIAS siv3d-messagebus)
@@ -123,6 +125,7 @@ if(SIV3D_MESSAGEBUS_BUILD_TESTS)
         test/MessageBusTest.cpp
         test/RedisConnectionPushTest.cpp
         test/RedisConnectionTest.cpp
+        test/SharedVariableTest.cpp
     )
     target_include_directories(siv3d-messagebus-tests
         PRIVATE

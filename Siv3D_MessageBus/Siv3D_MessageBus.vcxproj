@@ -128,10 +128,14 @@
     <ClInclude Include="include\ThirdParty\MessageBus\MessageBus.hpp" />
     <ClInclude Include="include\ThirdParty\MessageBus\RedisConnection.hpp" />
     <ClInclude Include="include\ThirdParty\MessageBus\GeneratedLicenses.hpp" />
+    <ClInclude Include="include\ThirdParty\MessageBus\SharedVariable.hpp" />
+    <ClInclude Include="include\ThirdParty\MessageBus\SharedVariableImpl.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\MessageBus.cpp" />
     <ClCompile Include="src\RedisConnection.cpp" />
+    <ClCompile Include="src\SharedVariable.cpp" />
+    <ClCompile Include="src\SharedVariableImpl.cpp" />
     <ClCompile Include="src\generated\HiredisLicense.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

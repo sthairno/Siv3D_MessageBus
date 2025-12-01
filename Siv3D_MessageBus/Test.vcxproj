@@ -125,6 +125,7 @@
     <ClCompile Include="test\MessageBusTest.cpp" />
     <ClCompile Include="test\RedisConnectionTest.cpp" />
     <ClCompile Include="test\RedisConnectionPushTest.cpp" />
+    <ClCompile Include="test\SharedVariableTest.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="test\App\Resource.rc" />
