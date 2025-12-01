@@ -1,6 +1,7 @@
 #pragma once
 
 #include "WindowsLibrary.hpp"
+#include "SharedVariable.hpp"
 #include <memory>
 
 #include <Siv3D/StringView.hpp>
@@ -66,6 +67,18 @@ namespace MessageBus
 		/// @brief 受信済みイベント
 		[[nodiscard]]
 		const s3d::Array<Event>& events() const;
+
+		// ================================
+		// 共有変数
+		// ================================
+
+		/// @brief 共有変数を宣言します
+		/// @tparam Type 変数の型（int32, double, bool, String, JSON のみサポート）
+		/// @param name 変数名
+		/// @param defaultValue 初期値（キーが存在しない場合に使用）
+		/// @return 共有変数のインスタンス
+		template<class Type>
+		SharedVariable<Type> variable(s3d::StringView name, const Type& defaultValue);
 
 	private:
 

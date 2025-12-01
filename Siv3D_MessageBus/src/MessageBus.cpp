@@ -1,8 +1,11 @@
 #include "MessageBus/MessageBus.hpp"
 #include "MessageBus/RedisConnection.hpp"
+#include "MessageBus/SharedVariable.hpp"
+#include "MessageBus/SharedVariableImpl.hpp"
 #include <Siv3D/Logger.hpp>
 #include <Siv3D/Unicode.hpp>
 #include <Siv3D/HashTable.hpp>
+#include <memory>
 
 extern "C" {
 #include <hiredis/async.h>
@@ -32,6 +35,8 @@ namespace MessageBus
 
 		s3d::Array<MessageBus::Event> eventsBuf;
 
+		s3d::HashTable<std::string, std::shared_ptr<SharedVariableImpl>> variables;
+
 		Impl(s3d::StringView ip, s3d::uint16 port, s3d::Optional<s3d::StringView> password)
 			: conn(RedisConnectionOptions{
 				.ip = ip,
@@ -39,8 +44,14 @@ namespace MessageBus
 				.password = password,
 				.heartbeatInterval = s3d::Seconds{ 10 },
 				.onConnect = nullptr,
-				.onReady = [this](redisAsyncContext* context) { reconcileSubscriptions(context); },
-				.onDisconnect = [this]() { markAllUnsubscribed(); }
+				.onReady = [this](redisAsyncContext* context) {
+					reconcileSubscriptions(context);
+					reconcileVariables(context);
+				},
+				.onDisconnect = [this]() {
+					markAllUnsubscribed();
+					markAllVariablesUninitialized();
+				}
 			})
 		{
 		}
@@ -144,6 +155,132 @@ namespace MessageBus
 				st.remote = st.desired;
 			}
 			channelsDirty = false;
+		}
+
+		void markAllVariablesUninitialized()
+		{
+			for (auto& [name, varImpl] : variables)
+			{
+				if (!varImpl->isDirty())
+				{
+					varImpl->markUninitialized();
+				}
+			}
+		}
+
+		static void onSetCallback(redisAsyncContext*, redisReply* reply, void*)
+		{
+			if (!reply) return;
+			if (reply->type == REDIS_REPLY_ERROR)
+			{
+				Logger << U"[MessageBus][ERROR] SET failed: " << Unicode::FromUTF8(std::string_view{ reply->str, reply->len });
+			}
+		}
+
+		struct SetNxGetCallbackData
+		{
+			std::string name;
+			std::shared_ptr<SharedVariableImpl> varImpl;
+		};
+
+		static void onSetNxGetCallback(redisAsyncContext*, redisReply* reply, void* privdata)
+		{
+			if (!reply) return;
+
+			auto* data = static_cast<SetNxGetCallbackData*>(privdata);
+			if (!data) return;
+
+			if (reply->type == REDIS_REPLY_ERROR)
+			{
+				Logger << U"[MessageBus][ERROR] SET NX GET failed: " << Unicode::FromUTF8(std::string_view{ reply->str, reply->len });
+				data->varImpl->markInitialized(); // エラーでも初期化済みとして扱う（再送を防ぐ）
+				delete data;
+				return;
+			}
+
+			// GET で取得した値があれば更新
+			// nil の場合は何もしない（初期値のまま）
+			if (reply->type == REDIS_REPLY_STRING && reply->str && reply->len > 0)
+			{
+				const std::string_view valueStr{ reply->str, reply->len };
+				const auto jsonValue = JSON::Parse(Unicode::FromUTF8(valueStr));
+				if (jsonValue != JSON::Invalid())
+				{
+					data->varImpl->setValueAsJSON(jsonValue);
+					data->varImpl->markDirty(); // 値が更新されたので dirty に戻す（次フレームで送信）
+				}
+			}
+
+			// nil の場合も初期化済みとして扱う
+			data->varImpl->markInitialized();
+			delete data;
+		}
+
+		void sendSet(const std::string& name, std::shared_ptr<SharedVariableImpl> varImpl)
+		{
+			auto* context = conn.context();
+			if (!context) return;
+
+			const std::string valueJson = varImpl->valueAsJSON().formatUTF8Minimum();
+
+			const char* argv[3];
+			size_t argvlen[3];
+			argv[0] = "SET";           argvlen[0] = 3;
+			argv[1] = name.c_str();   argvlen[1] = name.size();
+			argv[2] = valueJson.c_str(); argvlen[2] = valueJson.size();
+
+			redisAsyncCommandArgv(
+				context,
+				reinterpret_cast<redisCallbackFn*>(Impl::onSetCallback),
+				this,
+				3, argv, argvlen
+			);
+		}
+
+		void sendSetNxGet(const std::string& name, std::shared_ptr<SharedVariableImpl> varImpl)
+		{
+			auto* context = conn.context();
+			if (!context) return;
+
+			const std::string valueJson = varImpl->valueAsJSON().formatUTF8Minimum();
+
+			auto* data = new SetNxGetCallbackData{ name, varImpl };
+
+			// SET key value NX GET コマンドを送信
+			const char* argv[5];
+			size_t argvlen[5];
+			argv[0] = "SET";           argvlen[0] = 3;
+			argv[1] = name.c_str();   argvlen[1] = name.size();
+			argv[2] = valueJson.c_str(); argvlen[2] = valueJson.size();
+			argv[3] = "NX";           argvlen[3] = 2;
+			argv[4] = "GET";          argvlen[4] = 3;
+
+			redisAsyncCommandArgv(
+				context,
+				reinterpret_cast<redisCallbackFn*>(Impl::onSetNxGetCallback),
+				data,
+				5, argv, argvlen
+			);
+		}
+
+		void reconcileVariables(redisAsyncContext* context)
+		{
+			if (!context) return;
+
+			for (auto& [name, varImpl] : variables)
+			{
+				if (!varImpl->isDirty()) continue;
+
+				if (!varImpl->isInitialized())
+				{
+					sendSetNxGet(name, varImpl);
+				}
+				else
+				{
+					sendSet(name, varImpl);
+				}
+				varImpl->markClean();
+			}
 		}
 
 		static void onPublishCallback(redisAsyncContext*, redisReply* reply, Impl*)
@@ -270,6 +407,7 @@ namespace MessageBus
 			{
 				m_impl->reconcileSubscriptions(m_impl->conn.context());
 			}
+			m_impl->reconcileVariables(m_impl->conn.context());
 		}
 
 		m_impl->conn.tick();
@@ -304,4 +442,39 @@ namespace MessageBus
 	{
 		return m_impl->emit(channel, payload);
 	}
+
+	template<class Type>
+	SharedVariable<Type> MessageBus::variable(s3d::StringView name, const Type& defaultValue)
+	{
+		if (name.empty())
+		{
+			Logger << U"[MessageBus][ERROR] variable name cannot be empty";
+			throw std::invalid_argument("variable name cannot be empty");
+		}
+
+		const std::string u8name = Unicode::ToUTF8(name);
+		auto& variables = m_impl->variables;
+		auto varItr = variables.find(u8name);
+		if (varItr != variables.end())
+		{
+			// 既存の変数を返す
+			return SharedVariable<Type>(varItr->second);
+		}
+
+		// 新しい変数を作成
+		const JSON initialJson{ defaultValue };
+		auto varImpl = std::make_shared<SharedVariableImpl>(u8name, name, initialJson);
+		variables.emplace(u8name, varImpl);
+
+		Logger << U"[MessageBus][INFO] variable created: " << name;
+
+		return SharedVariable<Type>(varImpl);
+	}
+
+	// 明示的インスタンス化
+	template SharedVariable<int32> MessageBus::variable<int32>(s3d::StringView, const int32&);
+	template SharedVariable<double> MessageBus::variable<double>(s3d::StringView, const double&);
+	template SharedVariable<bool> MessageBus::variable<bool>(s3d::StringView, const bool&);
+	template SharedVariable<String> MessageBus::variable<String>(s3d::StringView, const String&);
+	template SharedVariable<JSON> MessageBus::variable<JSON>(s3d::StringView, const JSON&);
 }
