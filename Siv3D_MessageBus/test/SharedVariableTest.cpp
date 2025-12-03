@@ -126,7 +126,7 @@ TEST_F(SharedVariableBasic, VariableTypeMismatchThrowsErrorOnGet)
 
 	Sleep(bus, 0.5s);
 
-	EXPECT_THROW(value.get(), MessageBus::TypeConversionError);
+	EXPECT_THROW(value.get(), MessageBus::TypeMismatchError);
 }
 
 TEST_F(SharedVariableBasic, VariableSameNameReturnsSameInstance)

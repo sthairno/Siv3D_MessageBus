@@ -39,6 +39,7 @@ add_library(siv3d-messagebus SHARED
     src/SharedVariable.cpp
     src/SharedVariableImpl.cpp
     src/generated/HiredisLicense.cpp
+    src/TypeMismatchError.cpp
 )
 add_library(siv3d-messagebus::siv3d-messagebus ALIAS siv3d-messagebus)
 

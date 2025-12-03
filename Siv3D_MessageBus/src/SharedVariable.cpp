@@ -1,6 +1,8 @@
 #include "MessageBus/SharedVariable.hpp"
 #include <Siv3D/Unicode.hpp>
 
+#include "MessageBus/TypeMismatchError.hpp"
+
 using namespace s3d;
 
 namespace MessageBus
@@ -31,7 +33,36 @@ namespace MessageBus
 
 		if (not optValue.has_value())
 		{
-			throw TypeConversionError(U"Failed to convert JSON value to requested type: {}"_fmt(m_impl->u32name()));
+			StringView variableType, jsonType;
+			if constexpr (std::is_same_v<Type, s3d::int32>)
+			{
+				variableType = U"Int32";
+			}
+			else if constexpr (std::is_same_v<Type, double>)
+			{
+				variableType = U"Double";
+			}
+			else if constexpr (std::is_same_v<Type, bool>)
+			{
+				variableType = U"Boolean";
+			}
+			else if constexpr (std::is_same_v<Type, s3d::String>)
+			{
+				variableType = U"String";
+			}
+
+			switch (jsonValue.getType())
+			{
+			case JSONValueType::Null: jsonType = U"Null"; break;
+			case JSONValueType::Object: jsonType = U"Object"; break;
+			case JSONValueType::Array: jsonType = U"Array"; break;
+			case JSONValueType::String: jsonType = U"String"; break;
+			case JSONValueType::Number:	jsonType = U"Number"; break;
+			case JSONValueType::Bool: jsonType = U"Boolean"; break;
+			default: jsonType = U"Unknown"; break;
+			}
+
+			throw TypeMismatchError(m_impl->u32name(), variableType, jsonType);
 		}
 
 		return optValue.value();
