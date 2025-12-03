@@ -265,6 +265,7 @@ namespace MessageBus
 				if (varImpl->isDirty())
 				{
 					sendSet(name, varImpl);
+					varImpl->markInitialized();
 				}
 				else if (not varImpl->isInitialized())
 				{
