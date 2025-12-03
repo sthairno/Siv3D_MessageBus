@@ -5,9 +5,23 @@
 #include <Siv3D/String.hpp>
 #include <Siv3D/DateTime.hpp>
 #include <Siv3D/JSON.hpp>
+#include <Siv3D/Error.hpp>
 
 namespace MessageBus
 {
+	/// @brief 型変換エラーを表現する型
+	class TypeConversionError final : public s3d::Error
+	{
+	public:
+		using Error::Error;
+
+		[[nodiscard]]
+		s3d::StringView type() const noexcept override
+		{
+			return U"TypeConversionError";
+		}
+	};
+
 	/// @brief 共有変数を表すテンプレートクラス
 	/// @tparam Type 変数の型（int32, double, bool, String, JSON のみサポート）
 	template<class Type>
@@ -26,7 +40,7 @@ namespace MessageBus
 		/// @brief 値を取得します
 		/// @return 現在の値
 		[[nodiscard]]
-		const Type& get() const;
+		Type get() const;
 
 		/// @brief 最終更新日時を取得します（後フェーズで実装）
 		/// @return 最終更新日時

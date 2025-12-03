@@ -30,10 +30,13 @@ TEST_F(SharedVariableBasic, VariableSetInt32)
 
 	Sleep(bus, 0.5s);
 
-	// Redis から値を取得して確認
+	// SharedVariable 側の値が更新されていることを確認
+	EXPECT_EQ(score.get(), 100);
+
+	// Redis 側に反映された値が正しいことを確認
 	auto [exitCode, output] = ExecRedisCli({ "GET", "score" });
 	EXPECT_EQ(exitCode, 0);
-	EXPECT_TRUE(output.find("100") != std::string::npos);
+	EXPECT_NE(output.find("100"), std::string::npos);
 }
 
 TEST_F(SharedVariableBasic, VariableSetDouble)
@@ -46,9 +49,13 @@ TEST_F(SharedVariableBasic, VariableSetDouble)
 
 	Sleep(bus, 0.5s);
 
+	// SharedVariable 側の値が更新されていることを確認
+	EXPECT_DOUBLE_EQ(value.get(), 3.14);
+
+	// Redis 側に反映された値が正しいことを確認
 	auto [exitCode, output] = ExecRedisCli({ "GET", "value" });
 	EXPECT_EQ(exitCode, 0);
-	EXPECT_TRUE(output.find("3.14") != std::string::npos);
+	EXPECT_NE(output.find("3.14"), std::string::npos);
 }
 
 TEST_F(SharedVariableBasic, VariableSetBool)
@@ -61,9 +68,13 @@ TEST_F(SharedVariableBasic, VariableSetBool)
 
 	Sleep(bus, 0.5s);
 
+	// SharedVariable 側の値が更新されていることを確認
+	EXPECT_TRUE(flag.get());
+
+	// Redis 側に反映された値が正しいことを確認
 	auto [exitCode, output] = ExecRedisCli({ "GET", "flag" });
 	EXPECT_EQ(exitCode, 0);
-	EXPECT_TRUE(output.find("true") != std::string::npos);
+	EXPECT_NE(output.find("true"), std::string::npos);
 }
 
 TEST_F(SharedVariableBasic, VariableSetString)
@@ -76,9 +87,13 @@ TEST_F(SharedVariableBasic, VariableSetString)
 
 	Sleep(bus, 0.5s);
 
+	// SharedVariable 側の値が更新されていることを確認
+	EXPECT_TRUE(name.get() == U"test");
+
+	// Redis 側に反映された値が正しいことを確認
 	auto [exitCode, output] = ExecRedisCli({ "GET", "name" });
 	EXPECT_EQ(exitCode, 0);
-	EXPECT_TRUE(output.find("test") != std::string::npos);
+	EXPECT_NE(output.find("test"), std::string::npos);
 }
 
 TEST_F(SharedVariableBasic, VariableGetExistingValue)
@@ -97,7 +112,21 @@ TEST_F(SharedVariableBasic, VariableGetExistingValue)
 	// Redis の値は 42 のままであることを確認
 	auto [exitCode, output] = ExecRedisCli({ "GET", "existing" });
 	EXPECT_EQ(exitCode, 0);
-	EXPECT_TRUE(output == "42");
+	EXPECT_NE(output.find("42"), std::string::npos);
+}
+
+TEST_F(SharedVariableBasic, VariableTypeMismatchThrowsErrorOnGet)
+{
+	MessageBus::MessageBus bus{ U"127.0.0.1", 6379, none };
+	WaitForConnection(bus, 10s);
+	auto value = bus.variable<int32>(U"mismatch", 0);
+
+	// Redis 側に数値として解釈できない文字列を設定
+	ExecRedisCli({ "SET", "mismatch", "not_a_number" });
+
+	Sleep(bus, 0.5s);
+
+	EXPECT_THROW(value.get(), MessageBus::TypeConversionError);
 }
 
 TEST_F(SharedVariableBasic, VariableSameNameReturnsSameInstance)

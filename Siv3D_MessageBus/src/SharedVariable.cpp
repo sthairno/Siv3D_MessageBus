@@ -18,29 +18,35 @@ namespace MessageBus
 	}
 
 	template<class Type>
-	const Type& SharedVariable<Type>::get() const
+	void SharedVariable<Type>::set(const Type& value)
 	{
-		// 後フェーズで実装
-		static Type dummy{};
-		return dummy;
+		m_impl->setValueAsJSON(JSON(value));
+	}
+
+	template<class Type>
+	Type SharedVariable<Type>::get() const
+	{
+		const auto& jsonValue = m_impl->valueAsJSON();
+		const auto optValue = jsonValue.getOpt<Type>();
+
+		if (not optValue.has_value())
+		{
+			throw TypeConversionError(U"Failed to convert JSON value to requested type: {}"_fmt(m_impl->u32name()));
+		}
+
+		return optValue.value();
+	}
+
+	template<>
+	s3d::JSON SharedVariable<s3d::JSON>::get() const
+	{
+		return m_impl->valueAsJSON();
 	}
 
 	template<class Type>
 	DateTime SharedVariable<Type>::updatedAt() const
 	{
 		return m_impl->updatedAt();
-	}
-
-	template<class Type>
-	void SharedVariable<Type>::set(const Type& value)
-	{
-		m_impl->setValueAsJSON(JSON(value));
-	}
-
-	template<>
-	void SharedVariable<JSON>::set(const JSON& value)
-	{
-		m_impl->setValueAsJSON(value);
 	}
 
 	template class SharedVariable<s3d::int32>;

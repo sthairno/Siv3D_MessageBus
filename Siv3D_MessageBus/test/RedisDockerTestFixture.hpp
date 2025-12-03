@@ -57,6 +57,15 @@ protected:
 		StopContainer();
 	}
 
+	virtual void SetUp()
+	{
+		if (not s_started)
+		{
+			StartContainer();
+		}
+		ExecRedisCli({ "FLUSHALL" });
+	}
+
 	static void WaitForContainerHealthy(Duration timeout)
 	{
 		Stopwatch sw{ StartImmediately::Yes };
