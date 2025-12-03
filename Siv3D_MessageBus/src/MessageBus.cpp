@@ -193,8 +193,6 @@ namespace MessageBus
 			if (reply->type == REDIS_REPLY_ERROR)
 			{
 				Logger << U"[MessageBus][ERROR] SET NX GET failed: " << Unicode::FromUTF8(std::string_view{ reply->str, reply->len });
-				data->varImpl->markInitialized(); // エラーでも初期化済みとして扱う（再送を防ぐ）
-				delete data;
 				return;
 			}
 
@@ -204,16 +202,11 @@ namespace MessageBus
 			{
 				const std::string_view valueStr{ reply->str, reply->len };
 				const auto jsonValue = JSON::Parse(Unicode::FromUTF8(valueStr));
-				if (jsonValue != JSON::Invalid())
-				{
-					data->varImpl->setValueAsJSON(jsonValue);
-					data->varImpl->markDirty(); // 値が更新されたので dirty に戻す（次フレームで送信）
-				}
+				data->varImpl->setValueAsJSON(jsonValue);
 			}
 
 			// nil の場合も初期化済みとして扱う
 			data->varImpl->markInitialized();
-			delete data;
 		}
 
 		void sendSet(const std::string& name, std::shared_ptr<SharedVariableImpl> varImpl)
@@ -269,17 +262,15 @@ namespace MessageBus
 
 			for (auto& [name, varImpl] : variables)
 			{
-				if (!varImpl->isDirty()) continue;
-
-				if (!varImpl->isInitialized())
-				{
-					sendSetNxGet(name, varImpl);
-				}
-				else
+				if (varImpl->isDirty())
 				{
 					sendSet(name, varImpl);
 				}
-				varImpl->markClean();
+				else if (not varImpl->isInitialized())
+				{
+					sendSetNxGet(name, varImpl);
+					varImpl->markInitialized();
+				}
 			}
 		}
 
