@@ -11,6 +11,7 @@ namespace MessageBus
 		, m_value(initialValue)
 		, m_initialValue(initialValue)
 		, m_dirty(false)
+		, m_sending(false)
 		, m_initialized(false)
 		, m_updatedAt(DateTime::Now())
 	{
@@ -41,6 +42,21 @@ namespace MessageBus
 	void SharedVariableImpl::markDirty()
 	{
 		m_dirty = true;
+	}
+
+	bool SharedVariableImpl::isSending() const
+	{
+		return m_sending;
+	}
+
+	void SharedVariableImpl::markSending()
+	{
+		m_sending = true;
+	}
+
+	void SharedVariableImpl::markSent()
+	{
+		m_sending = false;
 	}
 
 	bool SharedVariableImpl::isInitialized() const

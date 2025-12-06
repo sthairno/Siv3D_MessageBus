@@ -45,6 +45,17 @@ namespace MessageBus
 		/// @brief dirtyフラグを設定します
 		void markDirty();
 
+		/// @brief sendingフラグを取得します
+		/// @return Redisへ送信中の場合 true
+		[[nodiscard]]
+		bool isSending() const;
+
+		/// @brief sendingフラグを設定します
+		void markSending();
+
+		/// @brief sendingフラグをクリアします
+		void markSent();
+
 		/// @brief initializedフラグを取得します
 		/// @return Redisに初回送信済みの場合 true
 		[[nodiscard]]
@@ -67,6 +78,7 @@ namespace MessageBus
 		s3d::JSON m_value;
 		s3d::JSON m_initialValue;
 		bool m_dirty;
+		bool m_sending;
 		bool m_initialized;
 		s3d::DateTime m_updatedAt;
 	};
