@@ -51,6 +51,9 @@ namespace MessageBus
 				.onDisconnect = [this]() {
 					markAllUnsubscribed();
 					markAllVariablesUninitialized();
+				},
+				.onInvalidate = [this](redisAsyncContext* context, const s3d::Array<std::string>& keys) {
+					handleInvalidate(context, keys);
 				}
 			})
 		{
@@ -161,15 +164,27 @@ namespace MessageBus
 		{
 			for (auto& [name, varImpl] : variables)
 			{
-				if (!varImpl->isDirty())
-				{
-					varImpl->markUninitialized();
-				}
+				varImpl->markUninitialized();
+				varImpl->markSent();
 			}
 		}
 
-		static void onSetCallback(redisAsyncContext*, redisReply* reply, void*)
+		struct SetCallbackData
 		{
+			std::string name;
+			std::shared_ptr<SharedVariableImpl> varImpl;
+		};
+
+		static void onSetCallback(redisAsyncContext*, redisReply* reply, SetCallbackData* privdata)
+		{
+			SetCallbackData data;
+			if (!privdata) return;
+			data = std::move(*privdata);
+			delete privdata;
+			
+			// 送信完了したのでフラグをクリア
+			data.varImpl->markSent();
+
 			if (!reply) return;
 			if (reply->type == REDIS_REPLY_ERROR)
 			{
@@ -183,30 +198,83 @@ namespace MessageBus
 			std::shared_ptr<SharedVariableImpl> varImpl;
 		};
 
-		static void onSetNxGetCallback(redisAsyncContext*, redisReply* reply, void* privdata)
+		struct GetCallbackData
 		{
-			if (!reply) return;
+			std::string name;
+			std::shared_ptr<SharedVariableImpl> varImpl;
+		};
 
-			auto* data = static_cast<SetNxGetCallbackData*>(privdata);
-			if (!data) return;
+		static void onGetCallback(redisAsyncContext*, redisReply* reply, GetCallbackData* privdata)
+		{
+			GetCallbackData data;
+			if (!privdata) return;
+			data = std::move(*privdata);
+			delete privdata;
+			if (!reply) return;
 
 			if (reply->type == REDIS_REPLY_ERROR)
 			{
-				Logger << U"[MessageBus][ERROR] SET NX GET failed: " << Unicode::FromUTF8(std::string_view{ reply->str, reply->len });
+				Logger << U"[MessageBus][ERROR] GET failed for key: " << Unicode::FromUTF8(data.name)
+					<< U" - " << Unicode::FromUTF8(std::string_view{ reply->str, reply->len });
+				return;
+			}
+
+			// nil の場合は何もしない（キャッシュは更新しない）
+			if (reply->type == REDIS_REPLY_NIL)
+			{
+				Logger << U"[MessageBus][WARN] GET returned nil for key: " << Unicode::FromUTF8(data.name);
+				return;
+			}
+
+			// 文字列値が取得できた場合のみ更新
+			if (reply->type == REDIS_REPLY_STRING)
+			{
+				const std::string_view valueStr{ reply->str, reply->len };
+				const auto jsonValue = JSON::Parse(Unicode::FromUTF8(valueStr));
+				
+				if (data.varImpl->isSending())
+				{
+					Logger << U"[MessageBus][WARN] Remote value update was ignored (possible data conflict)";
+				}
+				else if (jsonValue.isEmpty())
+				{
+					data.varImpl->setValueAsJSON(JSON::Invalid());
+					Logger << U"[MessageBus][WARN] Failed to parse JSON for key: " << Unicode::FromUTF8(data.name);
+				}
+				else
+				{
+					data.varImpl->setValueAsJSON(jsonValue);
+				}
+			}
+		}
+
+		static void onSetNxGetCallback(redisAsyncContext*, redisReply* reply, SetNxGetCallbackData* privdata)
+		{
+			SetNxGetCallbackData data;
+			if (!privdata) return;
+			data = std::move(*privdata);
+			delete privdata;
+			
+			// 送信完了したのでフラグをクリア
+			data.varImpl->markSent();
+
+			if (!reply) return;
+
+			if (reply->type == REDIS_REPLY_ERROR)
+			{
+				Logger << U"[MessageBus][ERROR] SET NX GET failed for key: " << Unicode::FromUTF8(data.name)
+					<< U" - " << Unicode::FromUTF8(std::string_view{ reply->str, reply->len });
 				return;
 			}
 
 			// GET で取得した値があれば更新
 			// nil の場合は何もしない（初期値のまま）
-			if (reply->type == REDIS_REPLY_STRING && reply->str && reply->len > 0)
+			if (reply->type == REDIS_REPLY_STRING && not data.varImpl->isDirty())
 			{
 				const std::string_view valueStr{ reply->str, reply->len };
 				const auto jsonValue = JSON::Parse(Unicode::FromUTF8(valueStr));
-				data->varImpl->setValueAsJSON(jsonValue);
+				data.varImpl->setValueAsJSON(jsonValue);
 			}
-
-			// nil の場合も初期化済みとして扱う
-			data->varImpl->markInitialized();
 		}
 
 		void sendSet(const std::string& name, std::shared_ptr<SharedVariableImpl> varImpl)
@@ -214,7 +282,10 @@ namespace MessageBus
 			auto* context = conn.context();
 			if (!context) return;
 
+			varImpl->markSending();
+
 			const std::string valueJson = varImpl->valueAsJSON().formatUTF8Minimum();
+			auto* data = new SetCallbackData{ name, varImpl };
 
 			const char* argv[3];
 			size_t argvlen[3];
@@ -225,7 +296,7 @@ namespace MessageBus
 			redisAsyncCommandArgv(
 				context,
 				reinterpret_cast<redisCallbackFn*>(Impl::onSetCallback),
-				this,
+				data,
 				3, argv, argvlen
 			);
 		}
@@ -234,6 +305,8 @@ namespace MessageBus
 		{
 			auto* context = conn.context();
 			if (!context) return;
+
+			varImpl->markSending();
 
 			const std::string valueJson = varImpl->valueAsJSON().formatUTF8Minimum();
 
@@ -256,21 +329,62 @@ namespace MessageBus
 			);
 		}
 
-		void reconcileVariables(redisAsyncContext* context)
+		void sendGet(const std::string& name, std::shared_ptr<SharedVariableImpl> varImpl)
 		{
+			auto* context = conn.context();
 			if (!context) return;
 
+			auto* data = new GetCallbackData{ name, varImpl };
+
+			// GET コマンドを送信
+			const char* argv[2];
+			size_t argvlen[2];
+			argv[0] = "GET";          argvlen[0] = 3;
+			argv[1] = name.c_str();   argvlen[1] = name.size();
+
+			redisAsyncCommandArgv(
+				context,
+				reinterpret_cast<redisCallbackFn*>(Impl::onGetCallback),
+				data,
+				2, argv, argvlen
+			);
+		}
+
+		void reconcileVariables(redisAsyncContext* context)
+		{
 			for (auto& [name, varImpl] : variables)
 			{
+				// 送信中は次の送信を行わない（待機）
+				if (varImpl->isSending())
+				{
+					continue;
+				}
+
 				if (varImpl->isDirty())
 				{
 					sendSet(name, varImpl);
 					varImpl->markInitialized();
+					varImpl->markClean();
 				}
 				else if (not varImpl->isInitialized())
 				{
 					sendSetNxGet(name, varImpl);
 					varImpl->markInitialized();
+				}
+			}
+		}
+
+		void handleInvalidate(redisAsyncContext* context, const s3d::Array<std::string>& keys)
+		{
+			if (!context) return;
+
+			for (const auto& key : keys)
+			{
+				auto varItr = variables.find(key);
+				if (varItr != variables.end())
+				{
+					Logger << U"[MessageBus][DEBUG] Invalidated key found, refreshing: " << Unicode::FromUTF8(key);
+					sendGet(key, varItr->second);
 				}
 			}
 		}
@@ -454,7 +568,7 @@ namespace MessageBus
 		}
 
 		// 新しい変数を作成
-		const JSON initialJson{ defaultValue };
+		const JSON initialJson(defaultValue);
 		auto varImpl = std::make_shared<SharedVariableImpl>(u8name, name, initialJson);
 		variables.emplace(u8name, varImpl);
 
