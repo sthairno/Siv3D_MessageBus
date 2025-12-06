@@ -1,5 +1,4 @@
 #include "MessageBus/SharedVariable.hpp"
-#include <Siv3D/Unicode.hpp>
 
 #include "MessageBus/TypeMismatchError.hpp"
 
