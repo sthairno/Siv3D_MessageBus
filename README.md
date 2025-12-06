@@ -175,6 +175,8 @@ SharedVariable<Type> variable(StringView name, const Type& defaultValue);
 * **キャッシュ**：
 
   * `get()`は**キャッシュの値を返却するだけ**。必要な更新処理は**バックグラウンド**で行い、メインループでは通信しない。
+  * Redis 6.0+ の **Client-side tracking** を利用し、他クライアントによる値の更新（Invalidateメッセージ）を受け取った場合、自動的にRedisから最新値を取得してキャッシュを更新する。
+  * **送信中のリモート変更は無視**：ローカルで`set()`した値をRedisに送信中の場合、その間に受信したInvalidate通知は無視される。これによりローカルの変更が優先され、データの競合を防ぐ。
 
 * **再接続**：
 
