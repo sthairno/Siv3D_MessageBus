@@ -53,7 +53,8 @@ def main() -> int:
 
     try:
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(cpp, encoding="utf-8", errors="strict")
+        with out.open("w", encoding="utf-8", errors="strict", newline="\n") as f:
+            f.write(cpp)
     except OSError as exc:
         print(f"[hiredis_license_cpp] failed to write output: {exc}", file=sys.stderr)
         return 1
