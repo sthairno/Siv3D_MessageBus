@@ -21,7 +21,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
@@ -87,7 +87,7 @@
       <DelayLoadDLLs>advapi32.dll;crypt32.dll;dwmapi.dll;gdi32.dll;imm32.dll;ole32.dll;oleaut32.dll;opengl32.dll;shell32.dll;shlwapi.dll;user32.dll;winmm.dll;ws2_32.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
     <PreBuildEvent>
-      <Command>python3 &quot;$(ProjectDir)scripts\hiredis_license_cpp.py&quot;</Command>
+      <Command>python3 "$(ProjectDir)scripts\hiredis_license_cpp.py"</Command>
     </PreBuildEvent>
     <PostBuildEvent />
   </ItemDefinitionGroup>
@@ -117,7 +117,7 @@
       <DelayLoadDLLs>advapi32.dll;crypt32.dll;dwmapi.dll;gdi32.dll;imm32.dll;ole32.dll;oleaut32.dll;opengl32.dll;shell32.dll;shlwapi.dll;user32.dll;winmm.dll;ws2_32.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
     <PreBuildEvent>
-      <Command>python3 &quot;$(ProjectDir)scripts\hiredis_license_cpp.py&quot;</Command>
+      <Command>python3 "$(ProjectDir)scripts\hiredis_license_cpp.py"</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -128,8 +128,10 @@
     <ClInclude Include="include\ThirdParty\MessageBus\MessageBus.hpp" />
     <ClInclude Include="include\ThirdParty\MessageBus\RedisConnection.hpp" />
     <ClInclude Include="include\ThirdParty\MessageBus\GeneratedLicenses.hpp" />
+    <ClInclude Include="include\ThirdParty\MessageBus\RedisConnectionState.hpp" />
     <ClInclude Include="include\ThirdParty\MessageBus\SharedVariable.hpp" />
     <ClInclude Include="include\ThirdParty\MessageBus\SharedVariableImpl.hpp" />
+    <ClInclude Include="include\ThirdParty\MessageBus\WindowsLibrary.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\MessageBus.cpp" />
