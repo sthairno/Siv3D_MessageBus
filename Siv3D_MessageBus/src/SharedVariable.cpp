@@ -1,4 +1,4 @@
-#include "MessageBus/SharedVariable.hpp"
+﻿#include "MessageBus/SharedVariable.hpp"
 
 #include "MessageBus/TypeMismatchError.hpp"
 
@@ -22,6 +22,7 @@ namespace MessageBus
 	void SharedVariable<Type>::set(const Type& value)
 	{
 		m_impl->setValueAsJSON(JSON(value));
+		m_impl->markDirty();
 	}
 
 	template<class Type>

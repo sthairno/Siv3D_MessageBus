@@ -1,4 +1,4 @@
-#include "MessageBus/SharedVariableImpl.hpp"
+﻿#include "MessageBus/SharedVariableImpl.hpp"
 #include <Siv3D/DateTime.hpp>
 
 using namespace s3d;
@@ -25,7 +25,6 @@ namespace MessageBus
 	void SharedVariableImpl::setValueAsJSON(const JSON& value)
 	{
 		m_value = value;
-		m_dirty = true;
 		m_updatedAt = DateTime::Now();
 	}
 
