@@ -131,6 +131,7 @@
     <ClInclude Include="include\ThirdParty\MessageBus\RedisConnectionState.hpp" />
     <ClInclude Include="include\ThirdParty\MessageBus\SharedVariable.hpp" />
     <ClInclude Include="include\ThirdParty\MessageBus\SharedVariableImpl.hpp" />
+    <ClInclude Include="include\ThirdParty\MessageBus\TypeMismatchError.hpp" />
     <ClInclude Include="include\ThirdParty\MessageBus\WindowsLibrary.hpp" />
   </ItemGroup>
   <ItemGroup>
@@ -139,6 +140,7 @@
     <ClCompile Include="src\SharedVariable.cpp" />
     <ClCompile Include="src\SharedVariableImpl.cpp" />
     <ClCompile Include="src\generated\HiredisLicense.cpp" />
+    <ClCompile Include="src\TypeMismatchError.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
