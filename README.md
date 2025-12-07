@@ -1,188 +1,206 @@
 # Siv3D_MessageBus
 
-## 導入方法
+## 0. 導入方法
 
-[HOW_TO_INSTALL.md](https://github.com/sthairno/Siv3D_MessageBus/blob/main/Siv3D_MessageBus/HOW_TO_INSTALL.md) を参照してください。
+Windowsは [HOW_TO_INSTALL.md](https://github.com/sthairno/Siv3D_MessageBus/blob/main/Siv3D_MessageBus/HOW_TO_INSTALL.md) を参照してください。
 
----
+## 1. 基本
+サーバーへの接続や更新処理など、ライブラリの基本的な機能です。
 
-# 要件
-
-**件名**：Siv3D向けミニマルRedisラッパ（イベント＋共有変数）
-**目的**：アプリ間通信を初心者でも扱いやすいAPIにして提供する
-
-## 1. スコープ
-
-* **提供機能**
-
-1. **イベント配信**
-  - `subscribe(key)`: イベント購読、アスタリスクによる一括購読には非対応
-  - `unsubscribe(key)`: イベント購読解除
-  - `emit(key[, params])`: イベント発火、paramsはJSON固定
-  - `events()`: イベント取得
-
-使用イメージ
+### 1.1 初期化と接続
+- `MessageBus(ip, port, password)` は Redis サーバーへの接続を作成します
+- `ip`: サーバーの IP アドレスまたはホスト名（文字列）
+- `port`: サーバーのポート番号（整数）
+- `password`: 認証パスワード（オプション）
 
 ```cpp
-#include <Siv3D.hpp>
+# include <Siv3D.hpp>
+# include <MessageBus/MessageBus.hpp>
 
 void Main()
 {
-    MessageBus bus(...);
+	// ローカルホストの 6379 ポートに接続
+	MessageBus::MessageBus bus{ U"localhost", 6379 };
 
-    bus.subscribe(U"game/start");
-    bus.subscribe(U"game/end");
+	// パスワード付きの場合
+	// MessageBus::MessageBus bus{ U"localhost", 6379, U"password" };
 
-    while (System::Update())
-    {
-        bus.tick();
-        
-        if (SimpleGUI::Button(U"ゲーム開始"))
-        {
-            bus.emit(U"game/start", UR"({ "some": "data" })"_json);
-            bus.emit(U"game/start"); // 空にもできる
-        }
-
-        for (const auto& event : bus.events())
-        {
-            if (event.channel == U"game/start")
-            {
-                if (const auto& param = event.value)
-                {
-                    Print << param[U"some"];
-                }
-            }
-        }
-    }
+	while (System::Update())
+	{
+		bus.tick();
+	}
 }
 ```
 
-2. **共有変数** (SharedVariable)
-  - `variable<type>(name, default)`: 変数の宣言
-    - `get()`: 最後に設定or取得された値、値の型が異なる場合はこのタイミングでエラーになる
-    - `set(...)`: 値の設定、複数回呼び出し対策にフレームの最後にRedisと同期
-
-使用イメージ
+### 1.2 定期更新
+- `tick()` はイベントの送受信処理や、共有変数の同期を行います
+- メインループ（`System::Update()`）の中で毎フレーム呼び出す必要があります
 
 ```cpp
-#include <Siv3D.hpp>
+# include <Siv3D.hpp>
+# include <MessageBus/MessageBus.hpp>
 
 void Main()
 {
-    MessageBus bus(...);
+	MessageBus::MessageBus bus{ U"localhost", 6379 };
 
-    auto score = bus.variable<int32_t>(U"score", 0);
-
-    Font font{ 20 };
-
-    while (System::Update())
-    {
-        bus.tick();
-
-        if (SimpleGUI::Button(U"10を設定"))
-        {
-            score.set(10);
-        }
-
-        font(U"{}点"_fmt(score.get()))
-            .drawAt(Scene::CenterF());
-    }
+	while (System::Update())
+	{
+		// 通信処理を実行
+		bus.tick();
+	}
 }
 ```
 
----
-
-## 2. 前提・制約
-
-* **構成**：1台（司令塔PC）でRedisを起動（Docker/Homebrew等）。他PCが接続。
-* **依存**：`hiredis v1.3.0`（Redisプロトコルは**直接操作させない**）。
-* **データ形式**：**JSON**（Siv3Dの`JSON`/`String`で完結）。
-* **Siv3D連携**：メインループは**ノンブロッキング**。メインスレッド内にネットワークIOを行わず、ワーカースレッドで行う。
-* **ビルド**：C++20 以上、Siv3D v0.6+ 想定（Windows/macOS）
-
----
-
-## 3. 典型ユースケース
-
-* ゲームの「開始/停止/更新」等の**イベント通知**。
-* スコアやフィールド状態など、**共有ステータス**の読取・更新。
-
----
-
-## 4. API 要件（インターフェース）
-
-### 4.1 初期化
+### 1.3 接続状態とエラー確認
+- `isConnected()` はサーバーに接続できているかを `bool` 型で返します
+	- `MessageBus` インスタンスを `bool` として評価することでも確認できます
+- `error()` は直近のエラーメッセージを `String` 型で返します
 
 ```cpp
-class MessageBus {
-public:
-    MessageBus(StringView ip, uint16 port, Optional<StringView> password = none)
-    void close(); // 終了（内部スレッド停止）
-    void tick(); // イベント処理
-    bool isConnected() const; // 接続状態フラグ
-    operator bool() const; // isConnectedと同じ
-};
+# include <Siv3D.hpp>
+# include <MessageBus/MessageBus.hpp>
+
+void Main()
+{
+	MessageBus::MessageBus bus{ U"localhost", 6379 };
+
+	while (System::Update())
+	{
+		bus.tick();
+
+		if (bus.isConnected())
+		{
+			Print << U"Connected!";
+		}
+		else
+		{
+			Print << U"Disconnected: " << bus.error();
+		}
+	}
+}
 ```
 
-### 4.2 イベント
+## 2. イベント
+アプリケーション間でメッセージを送受信する機能です。
+
+### 2.1 イベントの送信
+- `emit(channel, payload)` は指定したチャンネルにメッセージを送信します
+- `channel`: チャンネル名（文字列）
+- `payload`: 送信するデータ（`JSON`）。省略可能
 
 ```cpp
-// 購読/解除（RAIIは不採用。明示関数のみ）
-bool subscribe(StringView channel);      // true=登録成功
-bool unsubscribe(StringView channel);
+# include <Siv3D.hpp>
+# include <MessageBus/MessageBus.hpp>
 
-bool emit(StringView channel, Optional<JSON> payload = none); // 非同期送信（即return）
+void Main()
+{
+	MessageBus::MessageBus bus{ U"localhost", 6379 };
 
-struct Event {
-    String channel;
-    Optional<JSON> value;
-};
+	while (System::Update())
+	{
+		bus.tick();
 
-Array<Event> events();
+		if (SimpleGUI::Button(U"Send", Vec2{ 20, 20 }))
+		{
+			// "game/start" チャンネルにメッセージを送信
+			bus.emit(U"game/start", JSON{ {U"stage", 1} });
+		}
+	}
+}
 ```
 
-### 4.3 共有変数
+### 2.2 イベントの受信
+- `subscribe(channel)` で指定したチャンネルのイベントを受け取るように設定します
+- `unsubscribe(channel)` で指定したチャンネルの購読を解除します
+- `events()` で受信したイベントのリスト（`Array<Event>`）を取得します
+	- `Event` 構造体は `channel` (String) と `value` (JSON) を持ちます
 
 ```cpp
-template<class Type>
-class SharedVariable {
-public:
-    const String& name() const;
-    const Type& get() const;
-    void set(const Type& value);
-    DateTime updatedAt() const;
-};
+# include <Siv3D.hpp>
+# include <MessageBus/MessageBus.hpp>
 
-template<class Type>
-SharedVariable<Type> variable(StringView name, const Type& defaultValue);
+void Main()
+{
+	MessageBus::MessageBus bus{ U"localhost", 6379 };
+
+	// "game/start" チャンネルを購読
+	bus.subscribe(U"game/start");
+
+	while (System::Update())
+	{
+		bus.tick();
+
+		// 受信したイベントを処理
+		for (const auto& event : bus.events())
+		{
+			if (event.channel == U"game/start")
+			{
+				Print << U"Game Start: " << event.value;
+			}
+		}
+	}
+}
 ```
 
-**仕様**
+## 3. 共有変数
+アプリケーション間で値を共有・同期する機能です。
 
-* `variable(name, default)` 初期値とキーを設定する。もしすでにキーが存在する場合は初期値で上書きせず、元の値をバッファに保存する。
-* `get()` 値を取得する。
-* `set()` 値を設定する。もし同じフレーム内に２回以上呼び出された場合は最後に設定された値を送信する
+### 3.1 変数の宣言
+- `variable<Type>(name, defaultValue)` で共有変数を作成します
+- `Type`: 変数の型（`int32`, `double`, `bool`, `String`, `JSON` に対応）
+- `name`: 変数名（文字列）。この名前でサーバー上の値と紐付きます
+- `defaultValue`: 初期値。サーバーに値がない場合に使われます
 
----
+```cpp
+# include <Siv3D.hpp>
+# include <MessageBus/MessageBus.hpp>
 
-## 5. 内部動作・設計要件（外部仕様に影響しない範囲）
+void Main()
+{
+	MessageBus::MessageBus bus{ U"localhost", 6379 };
 
-* **非同期IO**：
+	// "score" という名前の整数型の共有変数を作成
+	auto score = bus.variable<int32>(U"score", 0);
 
-  * **送信ワーカースレッド**：`emit`/`set`のキューを処理し、Redisへ送信。
-  * **受信ワーカースレッド**：イベント購読接続を維持し、受信をローカルバッファへ格納。
+	// "playerName" という名前の文字列型の共有変数を作成
+	auto playerName = bus.variable<String>(U"playerName", U"Guest");
 
-* **キャッシュ**：
+	while (System::Update())
+	{
+		bus.tick();
+	}
+}
+```
 
-  * `get()`は**キャッシュの値を返却するだけ**。必要な更新処理は**バックグラウンド**で行い、メインループでは通信しない。
-  * Redis 6.0+ の **Client-side tracking** を利用し、他クライアントによる値の更新（Invalidateメッセージ）を受け取った場合、自動的にRedisから最新値を取得してキャッシュを更新する。
-  * **送信中のリモート変更は無視**：ローカルで`set()`した値をRedisに送信中の場合、その間に受信したInvalidate通知は無視される。これによりローカルの変更が優先され、データの競合を防ぐ。
+### 3.2 値の読み書き
+- `get()` で現在の値を取得します
+	- サーバー側で値が更新されると、自動的に同期されます
+- `set(value)` で値を更新します
+	- 更新した値は他のアプリケーションにも反映されます
 
-* **再接続**：
+```cpp
+# include <Siv3D.hpp>
+# include <MessageBus/MessageBus.hpp>
 
-  * 断検知→自動再接続→イベント購読の再確立。共有変数の再同期は実装側方針（例：必要キーのみMGET等）で実装。
+void Main()
+{
+	MessageBus::MessageBus bus{ U"localhost", 6379 };
 
-* **エラーハンドリング**：
+	auto score = bus.variable<int32>(U"score", 0);
 
-  * 変数に格納されている値の取得できないなど一時的なエラーは基本的に無視する。
-  * 型が期待と違う場合など再起不能なエラーは異常ステータスとして記録し、バッファの値は更新しない。代わりに、get()を呼び出したタイミングでエラーを表示する
+	while (System::Update())
+	{
+		bus.tick();
+
+		// 現在の値を表示
+		Print << U"Score: " << score.get();
+
+		if (SimpleGUI::Button(U"Add Score", Vec2{ 20, 100 }))
+		{
+			// 値を更新
+			score.set(score.get() + 100);
+		}
+	}
+}
+```
