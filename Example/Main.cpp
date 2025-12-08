@@ -67,11 +67,11 @@ void Main()
 		// 接続中は緑色、切断中は赤色でエラーメッセージを表示
 		if (bus.isConnected())
 		{
-			font(U"Connected").draw(20, 20, Palette::Green);
+			font(U"Connected").draw(20, 20, 20, Palette::Green);
 		}
 		else
 		{
-			font(U"Disconnected\n" + bus.error()).draw(20, 20, Palette::Red);
+			font(U"Disconnected\n" + bus.error()).draw(20, 20, 20, Palette::Red);
 		}
 
 		// 共有変数から現在のボード状態を取得する
@@ -173,7 +173,7 @@ void Main()
 
 		// 他のアプリケーションからの切り替えイベントを視覚的に表示するアニメーション
 		// プラス記号が拡大・フェードアウトするアニメーション
-		if (animationTarget.x >= 0 && animationTarget.y >= 0 && animationTimer.isRunning())
+		if (animationTimer.isRunning())
 		{
 			RectF cell{ GridPos.x + animationTarget.x * CellSize, GridPos.y + animationTarget.y * CellSize, CellSize };
 
