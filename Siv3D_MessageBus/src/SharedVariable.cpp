@@ -1,5 +1,5 @@
 #include "MessageBus/SharedVariable.hpp"
-#include "MessageBus/SharedVariableImpl.hpp"
+#include "MessageBus/detail/SharedVariableImpl.hpp"
 #include "MessageBus/TypeMismatchError.hpp"
 
 using namespace s3d;

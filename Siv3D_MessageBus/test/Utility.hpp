@@ -1,5 +1,5 @@
 #pragma once
-#include <MessageBus/RedisConnection.hpp>
+#include <MessageBus/detail/RedisConnection.hpp>
 #include <MessageBus/MessageBus.hpp>
 
 static constexpr auto TICK_INTERVAL = 20ms;

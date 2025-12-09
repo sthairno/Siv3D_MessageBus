@@ -1,5 +1,5 @@
-﻿#include "MessageBus/RedisConnection.hpp"
-#include "MessageBus/GeneratedLicenses.hpp"
+﻿#include "MessageBus/detail/RedisConnection.hpp"
+#include "MessageBus/detail/GeneratedLicenses.hpp"
 
 extern "C"
 {

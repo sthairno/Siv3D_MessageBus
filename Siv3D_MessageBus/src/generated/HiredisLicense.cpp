@@ -1,5 +1,5 @@
 // This file is auto-generated. Do not edit manually.
-#include "MessageBus/GeneratedLicenses.hpp"
+#include "MessageBus/detail/GeneratedLicenses.hpp"
 
 namespace MessageBus::Generated
 {

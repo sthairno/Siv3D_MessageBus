@@ -1,4 +1,4 @@
-﻿#include "MessageBus/SharedVariableImpl.hpp"
+﻿#include "MessageBus/detail/SharedVariableImpl.hpp"
 #include <Siv3D/DateTime.hpp>
 
 using namespace s3d;

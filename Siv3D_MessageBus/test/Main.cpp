@@ -2,7 +2,7 @@
 
 #include <gtest/gtest.h>
 #include <Siv3D.hpp>
-#include <MessageBus/RedisConnection.hpp>
+#include <MessageBus/detail/RedisConnection.hpp>
 
 SIV3D_SET(s3d::EngineOption::Renderer::Headless)
 

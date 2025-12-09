@@ -1,6 +1,6 @@
 #pragma once
 
-#include "WindowsLibrary.hpp"
+#include "detail/WindowsLibrary.hpp"
 #include "SharedVariable.hpp"
 #include <memory>
 

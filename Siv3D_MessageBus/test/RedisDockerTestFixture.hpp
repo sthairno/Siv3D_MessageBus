@@ -10,8 +10,8 @@
 #include <boost/asio/read.hpp>
 #include <boost/system/error_code.hpp>
 #include <Siv3D.hpp>
-#include <MessageBus/RedisConnection.hpp>
-#include <MessageBus/RedisConnectionState.hpp>
+#include <MessageBus/detail/RedisConnection.hpp>
+#include <MessageBus/detail/RedisConnectionState.hpp>
 #include <string>
 
 namespace bp = boost::process::v2;

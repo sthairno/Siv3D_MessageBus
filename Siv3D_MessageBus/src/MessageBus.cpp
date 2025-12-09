@@ -1,7 +1,7 @@
 #include "MessageBus/MessageBus.hpp"
-#include "MessageBus/RedisConnection.hpp"
+#include "MessageBus/detail/RedisConnection.hpp"
 #include "MessageBus/SharedVariable.hpp"
-#include "MessageBus/SharedVariableImpl.hpp"
+#include "MessageBus/detail/SharedVariableImpl.hpp"
 #include <Siv3D/Logger.hpp>
 #include <Siv3D/Unicode.hpp>
 #include <Siv3D/HashTable.hpp>

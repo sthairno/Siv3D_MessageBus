@@ -18,7 +18,7 @@ def split_copyright_and_text(raw: str) -> Tuple[str, str]:
 def render_cpp(title: str, copyright_text: str, license_text: str) -> str:
     return (
         "// This file is auto-generated. Do not edit manually.\n"
-        "#include \"MessageBus/GeneratedLicenses.hpp\"\n"
+        "#include \"MessageBus/detail/GeneratedLicenses.hpp\"\n"
         "\n"
         "namespace MessageBus::Generated\n"
         "{\n"
