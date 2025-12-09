@@ -25,8 +25,6 @@ namespace MessageBus
 		);
 
 	public:
-		explicit SharedVariable(std::shared_ptr<SharedVariableImpl> impl);
-
 		/// @brief 変数名を取得します
 		/// @return 変数名
 		[[nodiscard]]
@@ -49,6 +47,8 @@ namespace MessageBus
 
 	private:
 		friend class MessageBus;
+
+		explicit SharedVariable(std::shared_ptr<SharedVariableImpl> impl);
 
 		std::shared_ptr<SharedVariableImpl> m_impl;
 
