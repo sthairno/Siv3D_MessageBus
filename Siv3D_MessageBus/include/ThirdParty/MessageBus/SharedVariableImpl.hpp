@@ -4,7 +4,7 @@
 #include <Siv3D/DateTime.hpp>
 #include <string>
 
-namespace MessageBus
+namespace MessageBus::detail
 {
 	/// @brief SharedVariable の内部状態を管理するクラス
 	class SharedVariableImpl

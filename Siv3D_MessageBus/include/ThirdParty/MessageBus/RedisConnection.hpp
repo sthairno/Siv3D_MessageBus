@@ -17,7 +17,7 @@ extern "C" {
 #include <Siv3D/Array.hpp>
 #include <string>
 
-namespace MessageBus
+namespace MessageBus::detail
 {
 	struct RedisConnectionOptions
 	{

@@ -5,20 +5,20 @@
 static constexpr auto TICK_INTERVAL = 20ms;
 
 // 接続が確立するまで待機(タイムアウト付き)
-static bool WaitForConnection(MessageBus::RedisConnection& conn, Duration timeout = 30s)
+static bool WaitForConnection(MessageBus::detail::RedisConnection& conn, Duration timeout = 30s)
 {
 	Stopwatch sw{ StartImmediately::Yes };
 	while (sw.elapsed() < timeout)
 	{
 		conn.tick();
-		if (conn.state() == MessageBus::RedisConnectionState::Connected) return true;
-		if (conn.state() == MessageBus::RedisConnectionState::Failed) return false;
+		if (conn.state() == MessageBus::detail::RedisConnectionState::Connected) return true;
+		if (conn.state() == MessageBus::detail::RedisConnectionState::Failed) return false;
 		System::Sleep(TICK_INTERVAL);
 	}
 	return false;
 }
 
-static MessageBus::RedisConnectionState WaitForNextState(MessageBus::RedisConnection& conn, Duration timeout = 5s)
+static MessageBus::detail::RedisConnectionState WaitForNextState(MessageBus::detail::RedisConnection& conn, Duration timeout = 5s)
 {
 	auto initialState = conn.state();
 	Stopwatch sw{ StartImmediately::Yes };
@@ -32,7 +32,7 @@ static MessageBus::RedisConnectionState WaitForNextState(MessageBus::RedisConnec
 }
 
 // 一定時間 tick を回す（RedisConnection 用）
-static void Sleep(MessageBus::RedisConnection& conn, Duration time)
+static void Sleep(MessageBus::detail::RedisConnection& conn, Duration time)
 {
 	Stopwatch sw{ StartImmediately::Yes };
 	while (sw < time)
@@ -44,7 +44,7 @@ static void Sleep(MessageBus::RedisConnection& conn, Duration time)
 
 // 条件が満たされるまで待機（RedisConnection 用）
 template <class Pred>
-static bool WaitUntil(MessageBus::RedisConnection& conn, Pred&& predicate, Duration timeout = 5s)
+static bool WaitUntil(MessageBus::detail::RedisConnection& conn, Pred&& predicate, Duration timeout = 5s)
 {
 	Stopwatch sw{ StartImmediately::Yes };
 	while (sw < timeout && !predicate())
@@ -56,7 +56,7 @@ static bool WaitUntil(MessageBus::RedisConnection& conn, Pred&& predicate, Durat
 }
 
 // 状態が特定の値になるまで待機
-static bool WaitForState(MessageBus::RedisConnection& conn, MessageBus::RedisConnectionState targetState, Duration timeout = 5s)
+static bool WaitForState(MessageBus::detail::RedisConnection& conn, MessageBus::detail::RedisConnectionState targetState, Duration timeout = 5s)
 {
 	Stopwatch sw{ StartImmediately::Yes };
 	while (sw.elapsed() < timeout)

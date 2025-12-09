@@ -20,7 +20,7 @@ extern "C"
 
 using namespace s3d;
 
-namespace MessageBus
+namespace MessageBus::detail
 {
 	constexpr int MAX_RECONNECT_INTERVAL_SEC = 60;
 	constexpr int MAX_RECONNECT_ATTEMPTS = 10;

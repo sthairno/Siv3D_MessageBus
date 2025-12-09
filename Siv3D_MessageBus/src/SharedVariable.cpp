@@ -1,5 +1,5 @@
 #include "MessageBus/SharedVariable.hpp"
-
+#include "MessageBus/SharedVariableImpl.hpp"
 #include "MessageBus/TypeMismatchError.hpp"
 
 using namespace s3d;
@@ -7,7 +7,7 @@ using namespace s3d;
 namespace MessageBus
 {
 	template<class Type>
-	SharedVariable<Type>::SharedVariable(std::shared_ptr<SharedVariableImpl> impl)
+	SharedVariable<Type>::SharedVariable(std::shared_ptr<detail::SharedVariableImpl> impl)
 		: m_impl(std::move(impl))
 	{
 	}

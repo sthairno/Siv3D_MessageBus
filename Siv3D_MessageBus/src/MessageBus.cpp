@@ -22,7 +22,7 @@ namespace MessageBus
 
 	struct MessageBus::Impl
 	{
-		RedisConnection conn;
+		detail::RedisConnection conn;
 
 		struct ChannelState
 		{
@@ -35,10 +35,10 @@ namespace MessageBus
 
 		s3d::Array<MessageBus::Event> eventsBuf;
 
-		s3d::HashTable<std::string, std::shared_ptr<SharedVariableImpl>> variables;
+		s3d::HashTable<std::string, std::shared_ptr<detail::SharedVariableImpl>> variables;
 
 		Impl(s3d::StringView ip, s3d::uint16 port, s3d::Optional<s3d::StringView> password)
-			: conn(RedisConnectionOptions{
+			: conn(detail::RedisConnectionOptions{
 				.ip = ip,
 				.port = port,
 				.password = password,
@@ -172,7 +172,7 @@ namespace MessageBus
 		struct SetCallbackData
 		{
 			std::string name;
-			std::shared_ptr<SharedVariableImpl> varImpl;
+			std::shared_ptr<detail::SharedVariableImpl> varImpl;
 		};
 
 		static void onSetCallback(redisAsyncContext*, redisReply* reply, SetCallbackData* privdata)
@@ -195,13 +195,13 @@ namespace MessageBus
 		struct SetNxGetCallbackData
 		{
 			std::string name;
-			std::shared_ptr<SharedVariableImpl> varImpl;
+			std::shared_ptr<detail::SharedVariableImpl> varImpl;
 		};
 
 		struct GetCallbackData
 		{
 			std::string name;
-			std::shared_ptr<SharedVariableImpl> varImpl;
+			std::shared_ptr<detail::SharedVariableImpl> varImpl;
 		};
 
 		static void onGetCallback(redisAsyncContext*, redisReply* reply, GetCallbackData* privdata)
@@ -277,7 +277,7 @@ namespace MessageBus
 			}
 		}
 
-		void sendSet(const std::string& name, std::shared_ptr<SharedVariableImpl> varImpl)
+		void sendSet(const std::string& name, std::shared_ptr<detail::SharedVariableImpl> varImpl)
 		{
 			auto* context = conn.context();
 			if (!context) return;
@@ -301,7 +301,7 @@ namespace MessageBus
 			);
 		}
 
-		void sendSetNxGet(const std::string& name, std::shared_ptr<SharedVariableImpl> varImpl)
+		void sendSetNxGet(const std::string& name, std::shared_ptr<detail::SharedVariableImpl> varImpl)
 		{
 			auto* context = conn.context();
 			if (!context) return;
@@ -329,7 +329,7 @@ namespace MessageBus
 			);
 		}
 
-		void sendGet(const std::string& name, std::shared_ptr<SharedVariableImpl> varImpl)
+		void sendGet(const std::string& name, std::shared_ptr<detail::SharedVariableImpl> varImpl)
 		{
 			auto* context = conn.context();
 			if (!context) return;
@@ -405,7 +405,7 @@ namespace MessageBus
 		bool emit(StringView channel, Optional<JSON> payload)
 		{
 			if (not ValidateChannelName(channel) ||
-				conn.state() != RedisConnectionState::Connected)
+				conn.state() != detail::RedisConnectionState::Connected)
 			{
 				return false;
 			}
@@ -507,7 +507,7 @@ namespace MessageBus
 		m_impl->clearEventsBuffer();
 
 		// conn.tick の直前に差分バッチ送信
-		if (m_impl->conn.state() == RedisConnectionState::Connected)
+		if (m_impl->conn.state() == detail::RedisConnectionState::Connected)
 		{
 			if (m_impl->channelsDirty)
 			{
@@ -521,7 +521,7 @@ namespace MessageBus
 
 	bool MessageBus::isConnected() const
 	{
-		return m_impl->conn.state() == RedisConnectionState::Connected;
+		return m_impl->conn.state() == detail::RedisConnectionState::Connected;
 	}
 
 	const s3d::String& MessageBus::error() const
@@ -569,7 +569,7 @@ namespace MessageBus
 
 		// 新しい変数を作成
 		const JSON initialJson(defaultValue);
-		auto varImpl = std::make_shared<SharedVariableImpl>(u8name, name, initialJson);
+		auto varImpl = std::make_shared<detail::SharedVariableImpl>(u8name, name, initialJson);
 		variables.emplace(u8name, varImpl);
 
 		Logger << U"[MessageBus][INFO] variable created: " << name;

@@ -3,7 +3,7 @@
 
 using namespace s3d;
 
-namespace MessageBus
+namespace MessageBus::detail
 {
 	SharedVariableImpl::SharedVariableImpl(std::string_view u8name, StringView u32name, const JSON& initialValue)
 		: m_u8name(u8name)

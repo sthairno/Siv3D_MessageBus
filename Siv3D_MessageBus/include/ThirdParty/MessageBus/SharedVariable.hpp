@@ -1,6 +1,5 @@
 #pragma once
 
-#include "SharedVariableImpl.hpp"
 #include "TypeMismatchError.hpp"
 
 #include <memory>
@@ -10,6 +9,10 @@
 
 namespace MessageBus
 {
+	namespace detail
+	{
+		class SharedVariableImpl;
+	}
 	/// @brief 共有変数を表すテンプレートクラス
 	/// @tparam Type 変数の型（int32, double, bool, String, JSON のみサポート）
 	template<class Type>
@@ -48,9 +51,9 @@ namespace MessageBus
 	private:
 		friend class MessageBus;
 
-		explicit SharedVariable(std::shared_ptr<SharedVariableImpl> impl);
+		explicit SharedVariable(std::shared_ptr<detail::SharedVariableImpl> impl);
 
-		std::shared_ptr<SharedVariableImpl> m_impl;
+		std::shared_ptr<detail::SharedVariableImpl> m_impl;
 
 	public:
 		~SharedVariable();

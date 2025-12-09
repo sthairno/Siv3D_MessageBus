@@ -29,7 +29,7 @@ TEST_F(RedisConnectionPush, ReceiveInvalidatePush)
 	int invalidateCount = 0;
 	std::string receivedKey;
 
-	MessageBus::RedisConnection conn({
+	MessageBus::detail::RedisConnection conn({
 		.ip = U"127.0.0.1",
 		.port = 6379,
 		.password = s3d::none,
@@ -63,7 +63,7 @@ TEST_F(RedisConnectionPush, ReceiveInvalidatePushAfterReconnect)
 	int invalidateCount = 0;
 	std::string receivedKey;
 
-	MessageBus::RedisConnection conn({
+	MessageBus::detail::RedisConnection conn({
 		.ip = U"127.0.0.1",
 		.port = 6379,
 		.password = s3d::none,
@@ -83,15 +83,15 @@ TEST_F(RedisConnectionPush, ReceiveInvalidatePushAfterReconnect)
 
 	// いったんRedisサーバーを停止し、再接続させる
 	StopContainer();
-	EXPECT_TRUE(WaitForState(conn, MessageBus::RedisConnectionState::Failed, 30s));
+	EXPECT_TRUE(WaitForState(conn, MessageBus::detail::RedisConnectionState::Failed, 30s));
 	EXPECT_TRUE(conn.isReconnecting());
 
 	StartContainer();
 	EXPECT_TRUE(conn.isReconnecting());
-	EXPECT_EQ(WaitForNextState(conn, 30s), MessageBus::RedisConnectionState::Connecting);
-	EXPECT_EQ(WaitForNextState(conn, 30s), MessageBus::RedisConnectionState::HelloSent);
-	EXPECT_EQ(WaitForNextState(conn, 30s), MessageBus::RedisConnectionState::ClientTrackingSent);
-	EXPECT_EQ(WaitForNextState(conn, 30s), MessageBus::RedisConnectionState::Connected);
+	EXPECT_EQ(WaitForNextState(conn, 30s), MessageBus::detail::RedisConnectionState::Connecting);
+	EXPECT_EQ(WaitForNextState(conn, 30s), MessageBus::detail::RedisConnectionState::HelloSent);
+	EXPECT_EQ(WaitForNextState(conn, 30s), MessageBus::detail::RedisConnectionState::ClientTrackingSent);
+	EXPECT_EQ(WaitForNextState(conn, 30s), MessageBus::detail::RedisConnectionState::Connected);
 	EXPECT_FALSE(conn.isReconnecting());
 
 	const int before = invalidateCount;

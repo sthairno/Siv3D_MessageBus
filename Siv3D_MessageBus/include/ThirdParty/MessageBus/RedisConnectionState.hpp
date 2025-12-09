@@ -3,7 +3,7 @@
 #include <Siv3D/FormatData.hpp>
 #include <fmt/format.h>
 
-namespace MessageBus
+namespace MessageBus::detail
 {
 	// 接続状態の列挙型
 	enum class RedisConnectionState
@@ -35,7 +35,7 @@ namespace MessageBus
 
 // fmt 対応（テンプレートで任意の CharType に対応、ASCII を逐次書き出し）
 template <class Char>
-struct fmt::formatter<MessageBus::RedisConnectionState, Char>
+struct fmt::formatter<MessageBus::detail::RedisConnectionState, Char>
 {
 	template <class ParseContext>
 	constexpr auto parse(ParseContext& ctx)
@@ -44,18 +44,18 @@ struct fmt::formatter<MessageBus::RedisConnectionState, Char>
 	}
 
 	template <class FormatContext>
-	auto format(const MessageBus::RedisConnectionState& value, FormatContext& ctx) const
+	auto format(const MessageBus::detail::RedisConnectionState& value, FormatContext& ctx) const
 	{
 		const char* ascii = "";
 		switch (value)
 		{
-		case MessageBus::RedisConnectionState::Disconnected:       ascii = "Disconnected"; break;
-		case MessageBus::RedisConnectionState::Connecting:         ascii = "Connecting";   break;
-		case MessageBus::RedisConnectionState::HelloSent:          ascii = "HelloSent";    break;
-		case MessageBus::RedisConnectionState::ClientTrackingSent: ascii = "ClientTrackingSent"; break;
-		case MessageBus::RedisConnectionState::AuthSent:           ascii = "AuthSent";     break;
-		case MessageBus::RedisConnectionState::Connected:          ascii = "Connected";    break;
-		case MessageBus::RedisConnectionState::Failed:             ascii = "Failed";       break;
+		case MessageBus::detail::RedisConnectionState::Disconnected:       ascii = "Disconnected"; break;
+		case MessageBus::detail::RedisConnectionState::Connecting:         ascii = "Connecting";   break;
+		case MessageBus::detail::RedisConnectionState::HelloSent:          ascii = "HelloSent";    break;
+		case MessageBus::detail::RedisConnectionState::ClientTrackingSent: ascii = "ClientTrackingSent"; break;
+		case MessageBus::detail::RedisConnectionState::AuthSent:           ascii = "AuthSent";     break;
+		case MessageBus::detail::RedisConnectionState::Connected:          ascii = "Connected";    break;
+		case MessageBus::detail::RedisConnectionState::Failed:             ascii = "Failed";       break;
 		}
 
 		auto out = ctx.out();
