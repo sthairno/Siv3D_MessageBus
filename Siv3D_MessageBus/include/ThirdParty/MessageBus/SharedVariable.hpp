@@ -15,7 +15,6 @@ namespace MessageBus
 	template<class Type>
 	class SharedVariable
 	{
-	public:
 		static_assert(
 			std::is_same_v<Type, s3d::int32> ||
 			std::is_same_v<Type, double> ||
@@ -25,14 +24,9 @@ namespace MessageBus
 			"Type must be int32, double, bool, String, or JSON"
 		);
 
+	public:
 		explicit SharedVariable(std::shared_ptr<SharedVariableImpl> impl);
 
-	private:
-		friend class MessageBus;
-
-		std::shared_ptr<SharedVariableImpl> m_impl;
-
-	public:
 		/// @brief 変数名を取得します
 		/// @return 変数名
 		[[nodiscard]]
@@ -53,6 +47,12 @@ namespace MessageBus
 		[[nodiscard]]
 		s3d::DateTime updatedAt() const;
 
+	private:
+		friend class MessageBus;
+
+		std::shared_ptr<SharedVariableImpl> m_impl;
+
+	public:
 		~SharedVariable();
 	};
 }
