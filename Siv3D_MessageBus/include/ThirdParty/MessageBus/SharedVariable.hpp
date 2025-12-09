@@ -25,6 +25,14 @@ namespace MessageBus
 			"Type must be int32, double, bool, String, or JSON"
 		);
 
+		explicit SharedVariable(std::shared_ptr<SharedVariableImpl> impl);
+
+	private:
+		friend class MessageBus;
+
+		std::shared_ptr<SharedVariableImpl> m_impl;
+
+	public:
 		/// @brief 変数名を取得します
 		/// @return 変数名
 		[[nodiscard]]
@@ -45,11 +53,6 @@ namespace MessageBus
 		[[nodiscard]]
 		s3d::DateTime updatedAt() const;
 
-	private:
-		friend class MessageBus;
-
-		explicit SharedVariable(std::shared_ptr<SharedVariableImpl> impl);
-
-		std::shared_ptr<SharedVariableImpl> m_impl;
+		~SharedVariable();
 	};
 }

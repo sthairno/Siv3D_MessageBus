@@ -1,4 +1,4 @@
-﻿#include "MessageBus/SharedVariable.hpp"
+#include "MessageBus/SharedVariable.hpp"
 
 #include "MessageBus/TypeMismatchError.hpp"
 
@@ -78,6 +78,11 @@ namespace MessageBus
 	DateTime SharedVariable<Type>::updatedAt() const
 	{
 		return m_impl->updatedAt();
+	}
+
+	template<class Type>
+	SharedVariable<Type>::~SharedVariable()
+	{
 	}
 
 	template class SharedVariable<s3d::int32>;
