@@ -46,11 +46,11 @@ namespace MessageBus
 				.onConnect = nullptr,
 				.onReady = [this](redisAsyncContext* context) {
 					reconcileSubscriptions(context);
-					reconcileVariables(context);
+					syncVariables(context);
 				},
 				.onDisconnect = [this]() {
 					markAllUnsubscribed();
-					markAllVariablesUninitialized();
+					resetAllVariables();
 				},
 				.onInvalidate = [this](redisAsyncContext* context, const s3d::Array<std::string>& keys) {
 					handleInvalidate(context, keys);
@@ -160,21 +160,19 @@ namespace MessageBus
 			channelsDirty = false;
 		}
 
-		void markAllVariablesUninitialized()
+		void resetAllVariables()
 		{
 			for (auto& [name, varImpl] : variables)
 			{
-				varImpl->markUninitialized();
-				varImpl->markSent();
+				varImpl->reset();
 			}
 		}
 
-		void reconcileVariables(redisAsyncContext* context)
+		void syncVariables(redisAsyncContext* context)
 		{
-			if (!context) return;
 			for (auto& [name, varImpl] : variables)
 			{
-				varImpl->reconcile(context);
+				varImpl->syncToRemote(context);
 			}
 		}
 
@@ -188,7 +186,7 @@ namespace MessageBus
 				if (varItr != variables.end())
 				{
 					Logger << U"[MessageBus][DEBUG] Invalidated key found, refreshing: " << Unicode::FromUTF8(key);
-					varItr->second->refresh(context);
+					varItr->second->fetchFromRemote(context);
 				}
 			}
 		}
@@ -317,7 +315,7 @@ namespace MessageBus
 			{
 				m_impl->reconcileSubscriptions(m_impl->conn.context());
 			}
-			m_impl->reconcileVariables(m_impl->conn.context());
+			m_impl->syncVariables(m_impl->conn.context());
 		}
 
 		m_impl->conn.tick();

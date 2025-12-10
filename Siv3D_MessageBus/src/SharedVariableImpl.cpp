@@ -120,17 +120,11 @@ namespace MessageBus::detail
 		: m_u8name(u8name)
 		, m_u32name(u32name)
 		, m_value(initialValue)
-		, m_initialValue(initialValue)
 		, m_dirty(false)
 		, m_sending(false)
 		, m_initialized(false)
 		, m_updatedAt(DateTime::Now())
 	{
-	}
-
-	const JSON& SharedVariableImpl::valueAsJSON() const
-	{
-		return m_value;
 	}
 
 	void SharedVariableImpl::setValueAsJSON(const JSON& value)
@@ -139,88 +133,45 @@ namespace MessageBus::detail
 		m_updatedAt = DateTime::Now();
 	}
 
-	bool SharedVariableImpl::isDirty() const
+	void SharedVariableImpl::syncToRemote(redisAsyncContext* context)
 	{
-		return m_dirty;
-	}
-
-	void SharedVariableImpl::markClean()
-	{
-		m_dirty = false;
-	}
-
-	void SharedVariableImpl::markDirty()
-	{
-		m_dirty = true;
-	}
-
-	bool SharedVariableImpl::isSending() const
-	{
-		return m_sending;
-	}
-
-	void SharedVariableImpl::markSending()
-	{
-		m_sending = true;
-	}
-
-	void SharedVariableImpl::markSent()
-	{
-		m_sending = false;
-	}
-
-	bool SharedVariableImpl::isInitialized() const
-	{
-		return m_initialized;
-	}
-
-	void SharedVariableImpl::markInitialized()
-	{
-		m_initialized = true;
-	}
-
-	void SharedVariableImpl::markUninitialized()
-	{
-		m_initialized = false;
-	}
-
-	DateTime SharedVariableImpl::updatedAt() const
-	{
-		return m_updatedAt;
-	}
-
-	void SharedVariableImpl::reconcile(redisAsyncContext* context)
-	{
-		if (!context) return;
-
+		assert(context);
+		
 		// 送信中は次の送信を行わない
-		if (isSending())
+		if (m_sending)
 		{
 			return;
 		}
 
 		// 前回の値から変更されている場合は送信
-		if (isDirty())
+		if (m_dirty)
 		{
 			sendSet(context);
-			markInitialized();
-			markClean();
+			m_initialized = true;
+			m_dirty = false;
 			return;
 		}
 
 		// 接続直後の場合は変更されていなくても送信して初期化
-		if (not isInitialized())
+		if (not m_initialized)
 		{
 			sendSetNxGet(context);
-			markInitialized();
+			m_initialized = true;
 			return;
 		}
 	}
 
-	void SharedVariableImpl::refresh(redisAsyncContext* context)
+	void SharedVariableImpl::fetchFromRemote(redisAsyncContext* context)
 	{
-		if (!context) return;
+		assert(context);
+
 		sendGet(context);
+	}
+
+	void SharedVariableImpl::reset()
+	{
+		m_initialized = false;
+		m_sending = false;
 	}
 
 	void SharedVariableImpl::sendGet(redisAsyncContext* context)
@@ -234,9 +185,9 @@ namespace MessageBus::detail
 	{
 		if (!context) return;
 
-		markSending();
+		m_sending = true;
 
-		const std::string valueJson = valueAsJSON().formatUTF8Minimum();
+		const std::string valueJson = valueAsString();
 
 		RedisCommandHelper::SendSet(context, shared_from_this(), m_u8name, valueJson);
 	}
@@ -245,9 +196,9 @@ namespace MessageBus::detail
 	{
 		if (!context) return;
 
-		markSending();
+		m_sending = true;
 
-		const std::string valueJson = valueAsJSON().formatUTF8Minimum();
+		const std::string valueJson = valueAsString();
 
 		RedisCommandHelper::SendSetNxGet(context, shared_from_this(), m_u8name, valueJson);
 	}
@@ -276,7 +227,7 @@ namespace MessageBus::detail
 			const std::string_view valueStr{ reply->str, reply->len };
 			const auto jsonValue = JSON::Parse(Unicode::FromUTF8(valueStr));
 			
-			if (isSending() || isDirty())
+			if (m_sending || m_dirty)
 			{
 				// 送信中か、次のtickで更新される予定の場合は無視
 				Logger << U"[MessageBus][WARN] Remote value update was ignored (possible data conflict)";
@@ -296,7 +247,7 @@ namespace MessageBus::detail
 	void SharedVariableImpl::onSetCallback(redisAsyncContext*, redisReply* reply)
 	{
 		// 送信完了したのでフラグをクリア
-		markSent();
+		m_sending = false;
 
 		if (!reply) return;
 
@@ -309,7 +260,7 @@ namespace MessageBus::detail
 	void SharedVariableImpl::onSetNxGetCallback(redisAsyncContext*, redisReply* reply)
 	{
 		// 送信完了したのでフラグをクリア
-		markSent();
+		m_sending = false;
 
 		if (!reply) return;
 
@@ -322,11 +273,19 @@ namespace MessageBus::detail
 
 		// GET で取得した値があれば更新 ただし、次のtickで更新される予定の場合は無視
 		// nil の場合は何もしない（初期値のまま）
-		if (reply->type == REDIS_REPLY_STRING && not isDirty())
+		if (reply->type == REDIS_REPLY_STRING && not m_dirty)
 		{
 			const std::string_view valueStr{ reply->str, reply->len };
 			const auto jsonValue = JSON::Parse(Unicode::FromUTF8(valueStr));
-			setValueAsJSON(jsonValue);
+			if (jsonValue.isEmpty())
+			{
+				Logger << U"[MessageBus][WARN] Failed to parse JSON for key: " << u32name();
+				setValueAsJSON(JSON::Invalid());
+			}
+			else
+			{
+				setValueAsJSON(jsonValue);
+			}
 		}
 	}
 }

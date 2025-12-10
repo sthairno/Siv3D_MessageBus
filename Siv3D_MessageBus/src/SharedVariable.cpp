@@ -81,9 +81,7 @@ namespace MessageBus
 	}
 
 	template<class Type>
-	SharedVariable<Type>::~SharedVariable()
-	{
-	}
+	SharedVariable<Type>::~SharedVariable() = default;
 
 	template class SharedVariable<s3d::int32>;
 	template class SharedVariable<double>;

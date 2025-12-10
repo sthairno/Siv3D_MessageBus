@@ -34,63 +34,52 @@ namespace MessageBus::detail
 		/// @brief JSON形式の値を取得します
 		/// @return 現在の値（JSON形式）
 		[[nodiscard]]
-		const s3d::JSON& valueAsJSON() const;
+		const s3d::JSON& valueAsJSON() const { return m_value; }
+
+		/// @brief JSON形式の値をUTF-8文字列で取得します
+		/// @return 現在の値（UTF-8文字列）
+		[[nodiscard]]
+		std::string valueAsString() const { return m_value.formatUTF8Minimum(); }
 
 		/// @brief JSON形式の値を設定します
 		/// @param value 設定する値（JSON形式）
 		void setValueAsJSON(const s3d::JSON& value);
 
+		/// @brief dirtyフラグを設定します
+		void markDirty() { m_dirty = true; }
+
 		/// @brief dirtyフラグを取得します
 		/// @return set()が呼ばれた場合 true
 		[[nodiscard]]
-		bool isDirty() const;
-
-		/// @brief dirtyフラグをクリアします
-		void markClean();
-
-		/// @brief dirtyフラグを設定します
-		void markDirty();
+		bool isDirty() const { return m_dirty; }
 
 		/// @brief sendingフラグを取得します
 		/// @return Redisへ送信中の場合 true
 		[[nodiscard]]
-		bool isSending() const;
-
-		/// @brief sendingフラグを設定します
-		void markSending();
-
-		/// @brief sendingフラグをクリアします
-		void markSent();
+		bool isSending() const { return m_sending; }
 
 		/// @brief initializedフラグを取得します
 		/// @return Redisに初回送信済みの場合 true
 		[[nodiscard]]
-		bool isInitialized() const;
-
-		/// @brief initializedフラグを設定します
-		void markInitialized();
-
-		/// @brief initializedフラグをクリアします
-		void markUninitialized();
+		bool isInitialized() const { return m_initialized; }
 
 		/// @brief 最終更新日時を取得します
 		/// @return 最終更新日時
 		[[nodiscard]]
-		s3d::DateTime updatedAt() const;
-
-		// ================================
-		// Redis コマンド送信
-		// ================================
+		s3d::DateTime updatedAt() const { return m_updatedAt; }
 
 		/// @brief 変数の状態を確認して必要に応じて Redis に送信します
 		/// @param context Redis 非同期コンテキスト
 		/// @param self 自身の shared_ptr（コールバック用）
-		void reconcile(redisAsyncContext* context);
+		void syncToRemote(redisAsyncContext* context);
 
 		/// @brief Redis から値を再取得します（無効化された場合など）
 		/// @param context Redis 非同期コンテキスト
 		/// @param self 自身の shared_ptr（コールバック用）
-		void refresh(redisAsyncContext* context);
+		void fetchFromRemote(redisAsyncContext* context);
+
+		/// @brief 変数の状態をリセットします
+		void reset();
 
 	private:
 		
@@ -99,7 +88,6 @@ namespace MessageBus::detail
 		std::string m_u8name;
 		s3d::String m_u32name;
 		s3d::JSON m_value;
-		s3d::JSON m_initialValue;
 		bool m_dirty;
 		bool m_sending;
 		bool m_initialized;
