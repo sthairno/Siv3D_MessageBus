@@ -3,11 +3,17 @@
 #include <Siv3D/JSON.hpp>
 #include <Siv3D/DateTime.hpp>
 #include <string>
+#include <memory>
+
+extern "C" {
+struct redisAsyncContext;
+struct redisReply;
+}
 
 namespace MessageBus::detail
 {
 	/// @brief SharedVariable の内部状態を管理するクラス
-	class SharedVariableImpl
+	class SharedVariableImpl : public std::enable_shared_from_this<SharedVariableImpl>
 	{
 	public:
 		/// @brief コンストラクタ
@@ -72,7 +78,24 @@ namespace MessageBus::detail
 		[[nodiscard]]
 		s3d::DateTime updatedAt() const;
 
+		// ================================
+		// Redis コマンド送信
+		// ================================
+
+		/// @brief 変数の状態を確認して必要に応じて Redis に送信します
+		/// @param context Redis 非同期コンテキスト
+		/// @param self 自身の shared_ptr（コールバック用）
+		void reconcile(redisAsyncContext* context);
+
+		/// @brief Redis から値を再取得します（無効化された場合など）
+		/// @param context Redis 非同期コンテキスト
+		/// @param self 自身の shared_ptr（コールバック用）
+		void refresh(redisAsyncContext* context);
+
 	private:
+		
+		struct RedisCommandHelper;
+		
 		std::string m_u8name;
 		s3d::String m_u32name;
 		s3d::JSON m_value;
@@ -81,5 +104,15 @@ namespace MessageBus::detail
 		bool m_sending;
 		bool m_initialized;
 		s3d::DateTime m_updatedAt;
+		
+		// コマンド送信
+		void sendGet(redisAsyncContext* context);
+		void sendSet(redisAsyncContext* context);
+		void sendSetNxGet(redisAsyncContext* context);
+
+		// コールバック関数
+		void onGetCallback(redisAsyncContext*, redisReply* reply);
+		void onSetCallback(redisAsyncContext*, redisReply* reply);
+		void onSetNxGetCallback(redisAsyncContext*, redisReply* reply);
 	};
 }
