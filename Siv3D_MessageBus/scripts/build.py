@@ -113,7 +113,7 @@ def build_with_msbuild(
     return 0
 
 
-def build_with_cmake(project_root: Path, project_stem: str, configuration: str) -> int:
+def build_with_cmake(project_root: Path, project_stem: str, configuration: str, generator: str | None = None) -> int:
     target = CMAKE_TARGETS.get(project_stem)
     if not target:
         known_projects = ", ".join(sorted(CMAKE_TARGETS))
@@ -140,20 +140,33 @@ def build_with_cmake(project_root: Path, project_stem: str, configuration: str) 
         str(project_root),
         "-B",
         str(build_dir),
-        f"-DCMAKE_BUILD_TYPE={configuration}",
         f"-DCMAKE_TOOLCHAIN_FILE={toolchain_file}",
         f"-DSIV3D_MESSAGEBUS_BUILD_TESTS={'ON' if target['enable_tests'] else 'OFF'}",
     ]
+    if generator:
+        cmake_cache_args.extend(["-G", generator])
+        # Xcodeジェネレータの場合、Intel x64アーキテクチャを強制
+        if generator == "Xcode":
+            cmake_cache_args.append("-DCMAKE_OSX_ARCHITECTURES=x86_64")
+            # vcpkgのトリプレットをx64-osxに設定（Apple Silicon非対応）
+            cmake_cache_args.append("-DVCPKG_TARGET_TRIPLET=x64-osx")
+    else:
+        # Single-configuration generators need CMAKE_BUILD_TYPE
+        cmake_cache_args.append(f"-DCMAKE_BUILD_TYPE={configuration}")
 
     print(f"CMake configure command: {' '.join(cmake_cache_args)}")
     try:
-        configure = subprocess.run(cmake_cache_args, check=False)
+        configure = subprocess.run(cmake_cache_args, check=False, capture_output=True, text=True)
     except OSError as exc:
         print(f"Failed to launch CMake: {exc}", file=sys.stderr)
         return 1
 
     if configure.returncode != 0:
         print(f"CMake configuration failed with code {configure.returncode}.", file=sys.stderr)
+        if configure.stderr:
+            print(configure.stderr, file=sys.stderr)
+        if configure.stdout:
+            print(configure.stdout, file=sys.stderr)
         return configure.returncode
 
     build_cmd = [
@@ -163,6 +176,9 @@ def build_with_cmake(project_root: Path, project_stem: str, configuration: str) 
         "--target",
         target["target"],
     ]
+    # Multi-configuration generators (like Xcode) need --config
+    if generator == "Xcode":
+        build_cmd.append(f"--config={configuration}")
 
     print(f"CMake build command: {' '.join(build_cmd)}")
     try:
@@ -199,8 +215,11 @@ def main() -> int:
             print("Info: --msbuild-path is ignored on Linux.", file=sys.stderr)
         return build_with_cmake(project_root, project_stem, args.configuration)
     if sys.platform == "darwin":
-        print("Error: macOS is not supported yet.", file=sys.stderr)
-        return 1
+        if args.platform not in {"x64", ""}:
+            print(f"Info: --platform={args.platform} is ignored on macOS.", file=sys.stderr)
+        if args.msbuild_path:
+            print("Info: --msbuild-path is ignored on macOS.", file=sys.stderr)
+        return build_with_cmake(project_root, project_stem, args.configuration, "Xcode")
 
     print(f"Error: Unsupported platform '{sys.platform}'.", file=sys.stderr)
     return 1

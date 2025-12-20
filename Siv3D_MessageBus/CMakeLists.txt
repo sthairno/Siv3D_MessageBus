@@ -20,14 +20,23 @@ if(NOT SIV3D_MESSAGEBUS_SOVERSION)
     set(SIV3D_MESSAGEBUS_SOVERSION "${SIV3D_MESSAGEBUS_VERSION}")
 endif()
 
-find_package(Siv3D REQUIRED)
 find_package(Hiredis 1.1.0 REQUIRED)
+
+# Siv3Dの設定
+if(APPLE)
+    # macOSの場合: cmake/siv3d_mac に展開されたSiv3Dを使用
+    include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/Siv3DMac.cmake")
+    get_target_property(SIV3D_INCLUDE_DIRS Siv3D::Siv3D INTERFACE_INCLUDE_DIRECTORIES)
+elseif(UNIX)
+    # Linuxの場合: find_packageを使用（将来の対応）
+    find_package(Siv3D REQUIRED)
+    get_target_property(SIV3D_INCLUDE_DIRS Siv3D::Siv3D INTERFACE_INCLUDE_DIRECTORIES)
+endif()
+
 if(SIV3D_MESSAGEBUS_BUILD_TESTS)
     find_package(GTest REQUIRED)
     find_package(Boost REQUIRED COMPONENTS filesystem system process)
 endif()
-
-get_target_property(SIV3D_INCLUDE_DIRS Siv3D::Siv3D INTERFACE_INCLUDE_DIRECTORIES)
 
 ############################################################
 # Create a library
@@ -51,10 +60,18 @@ target_include_directories(siv3d-messagebus
         # Siv3Dは静的ライブラリしかないため、ヘッダーファイルの追加だけ行う
         ${SIV3D_INCLUDE_DIRS}
 )
-target_link_libraries(siv3d-messagebus
-    PUBLIC
-        ${HIREDIS_LIB_HIREDIS}
-)
+# Hiredisのリンク方法はプラットフォームによって異なる
+if(APPLE)
+    target_link_libraries(siv3d-messagebus
+        PUBLIC
+            hiredis::hiredis
+    )
+else()
+    target_link_libraries(siv3d-messagebus
+        PUBLIC
+            ${HIREDIS_LIB_HIREDIS}
+    )
+endif()
 
 set_target_properties(siv3d-messagebus PROPERTIES
     VERSION "${SIV3D_MESSAGEBUS_VERSION}"

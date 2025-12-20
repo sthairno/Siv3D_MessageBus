@@ -2,16 +2,14 @@
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
   "name": "siv3d-messagebus",
   "version-string": "0.1.0",
-  "supports": "(windows & x64 & static) | (linux & x64)",
+  "supports": "(windows & x64 & static) | (linux & x64) | (osx & x64)",
   "dependencies": [
     {
       "name": "hiredis",
-      "version>=": "1.2.0",
-      "platform": "windows"
+      "version>=": "1.2.0"
     },
     {
-      "name": "gtest",
-      "platform": "windows"
+      "name": "gtest"
     },
     {
       "name": "boost-process",
