@@ -61,7 +61,7 @@ void Main()
     
     while (System::Update())
     {
-        bus.tick();
+        bus.update();
     }
 }
 ```

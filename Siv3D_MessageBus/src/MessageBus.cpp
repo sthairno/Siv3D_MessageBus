@@ -304,7 +304,7 @@ namespace MessageBus
 		m_impl->conn.disconnect();
 	}
 
-	void MessageBus::tick()
+	void MessageBus::update()
 	{
 		m_impl->clearEventsBuffer();
 

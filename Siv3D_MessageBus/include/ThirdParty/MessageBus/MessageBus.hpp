@@ -25,7 +25,7 @@ namespace MessageBus
 		void close();
 
 		/// @brief イベント処理を行います（メインループで毎フレーム呼び出す）
-		void tick();
+		void update();
 
 		/// @brief 接続状態を取得します
 		/// @return 接続済みの場合 true

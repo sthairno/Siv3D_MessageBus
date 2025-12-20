@@ -27,13 +27,13 @@ void Main()
 
 	while (System::Update())
 	{
-		bus.tick();
+		bus.update();
 	}
 }
 ```
 
 ### 1.2 定期更新
-- `tick()` はイベントの送受信処理や、共有変数の同期を行います
+- `update()` はイベントの送受信処理や、共有変数の同期を行います
 - メインループ（`System::Update()`）の中で毎フレーム呼び出す必要があります
 
 ```cpp
@@ -47,7 +47,7 @@ void Main()
 	while (System::Update())
 	{
 		// 通信処理を実行
-		bus.tick();
+		bus.update();
 	}
 }
 ```
@@ -67,7 +67,7 @@ void Main()
 
 	while (System::Update())
 	{
-		bus.tick();
+		bus.update();
 
 		if (bus.isConnected())
 		{
@@ -99,7 +99,7 @@ void Main()
 
 	while (System::Update())
 	{
-		bus.tick();
+		bus.update();
 
 		if (SimpleGUI::Button(U"Send", Vec2{ 20, 20 }))
 		{
@@ -129,7 +129,7 @@ void Main()
 
 	while (System::Update())
 	{
-		bus.tick();
+		bus.update();
 
 		// 受信したイベントを処理
 		for (const auto& event : bus.events())
@@ -168,7 +168,7 @@ void Main()
 
 	while (System::Update())
 	{
-		bus.tick();
+		bus.update();
 	}
 }
 ```
@@ -191,7 +191,7 @@ void Main()
 
 	while (System::Update())
 	{
-		bus.tick();
+		bus.update();
 
 		// 現在の値を表示
 		Print << U"Score: " << score.get();
