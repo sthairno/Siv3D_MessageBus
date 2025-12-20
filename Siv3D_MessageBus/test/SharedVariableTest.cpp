@@ -199,7 +199,7 @@ TEST_F(SharedVariableInvalidate, IgnoreRemoteUpdateIfSending)
 	Sleep(bus, 0.5s);
 
 	// 2. ローカルで値を更新した直後に、Redis CLI経由で外部から更新（Invalidateを発生させる）
-	//    ローカル更新(100) -> tick() で送信開始(sending=true) -> CLI SET 999 -> Invalidate受信
+	//    ローカル更新(100) -> update() で送信開始(sending=true) -> CLI SET 999 -> Invalidate受信
 	//    sending中なのでリモート値(999)は無視され、ローカル値(100)がRedisに反映される
 	conflictVar.set(100);
 	ExecRedisCli({ "SET", "conflict_update", "999" });
