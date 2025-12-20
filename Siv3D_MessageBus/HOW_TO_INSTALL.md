@@ -106,7 +106,7 @@ Docker Desktop が `Running` 状態になっていることを確認したら、
    PowerShell を開き、以下のコマンドをコピー＆ペーストして実行します。
    このコマンドは、Redisの公式イメージをダウンロードし、Siv3Dから接続できるように設定してバックグラウンドで起動します。
    ```
-   docker run -d --name siv3d-redis -p 6379:6379 --restart unless-stopped --rm redis:latest
+   docker run -d --name siv3d-redis -p 6379:6379 --restart unless-stopped redis:latest
    ```
 
 2. **コンテナの動作を確認する**  
