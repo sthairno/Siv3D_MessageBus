@@ -67,7 +67,8 @@ namespace MessageBus::detail
 			m_state == RedisConnectionState::Failed)
 		{
 			// 再接続処理
-			if (m_isReconnecting && m_reconnectTimer.reachedZero())
+			if (m_isReconnecting && !m_isDisconnecting &&
+				m_reconnectTimer.reachedZero())
 			{
 				tryConnect();
 			}
@@ -86,10 +87,7 @@ namespace MessageBus::detail
 	{
 		// 手動切断では再接続を抑止
 		m_isReconnecting = false;
-		if (m_context)
-		{
-			redisAsyncDisconnect(m_context);
-		}
+		requestDisconnect();
 	}
 
 	void RedisConnection::tryConnect()
@@ -188,6 +186,16 @@ namespace MessageBus::detail
 		m_isReconnecting = true;
 	}
 
+	void RedisConnection::requestDisconnect()
+	{
+		if (!m_context)
+		{
+			return;
+		}
+		m_isDisconnecting = true;
+		redisAsyncDisconnect(m_context);
+	}
+
 	// コールバック実装
 	void RedisConnection::onConnectCallback(redisAsyncContext* ac, int status)
 	{
@@ -251,6 +259,7 @@ namespace MessageBus::detail
 		if (self->m_onDisconnect)
 			self->m_onDisconnect();
 
+		self->m_isDisconnecting = false;
 		self->m_context = nullptr;
 	}
 
@@ -262,7 +271,7 @@ namespace MessageBus::detail
 		if (reply->type == REDIS_REPLY_ERROR)
 		{
 			self->failure(U"Auth Error: {}"_fmt(Unicode::FromUTF8(reply->str)), false);
-			redisAsyncDisconnect(ac);
+			self->requestDisconnect();
 		}
 		else
 		{
@@ -293,7 +302,7 @@ namespace MessageBus::detail
 				message = U"Protocol Error: {}"_fmt(message);
 			}
 			self->failure(message, false);
-			redisAsyncDisconnect(ac);
+			self->requestDisconnect();
 		}
 		else
 		{
@@ -309,7 +318,7 @@ namespace MessageBus::detail
 		if (reply->type == REDIS_REPLY_ERROR)
 		{
 			self->failure(U"Protocol Error: {}"_fmt(Unicode::FromUTF8(reply->str)), false);
-			redisAsyncDisconnect(ac);
+			self->requestDisconnect();
 		}
 		else
 		{
