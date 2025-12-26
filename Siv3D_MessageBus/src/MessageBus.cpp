@@ -6,6 +6,7 @@
 #include <Siv3D/Unicode.hpp>
 #include <Siv3D/HashTable.hpp>
 #include <memory>
+#include <thread>
 
 extern "C" {
 #include <hiredis/async.h>
@@ -302,6 +303,21 @@ namespace MessageBus
 	void MessageBus::disconnect()
 	{
 		m_impl->conn.disconnect();
+	}
+
+	void MessageBus::shutdown()
+	{
+		if (m_impl->conn.state() == detail::RedisConnectionState::Connected &&
+			not m_impl->conn.isDisconnecting())
+		{
+			m_impl->conn.disconnect();
+		}
+
+		while (m_impl->conn.state() == detail::RedisConnectionState::Connected)
+		{
+			std::this_thread::yield();
+			m_impl->conn.tick();
+		}
 	}
 
 	void MessageBus::update()

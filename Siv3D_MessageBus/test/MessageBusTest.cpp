@@ -226,3 +226,27 @@ TEST_F(MessageBusEvents, EmitBeforeConnectionReturnsFalse)
 	MessageBus::MessageBus bus{ U"127.0.0.1", 6379, none };
 	EXPECT_FALSE(bus.emit(U"early", UR"({ "a": 1 })"_json));
 }
+
+// ============================================================================
+// MessageBus shutdown テスト
+// ============================================================================
+
+TEST_F(MessageBusEvents, ShutdownWhenConnected)
+{
+	MessageBus::MessageBus bus{ U"127.0.0.1", 6379, none };
+	WaitForConnection(bus, 10s);
+	ASSERT_TRUE(bus.isConnected());
+
+	bus.shutdown();
+	EXPECT_FALSE(bus.isConnected());
+}
+
+TEST_F(MessageBusEvents, ShutdownWhenDisconnected)
+{
+	MessageBus::MessageBus bus{ U"127.0.0.1", 6379, none };
+	EXPECT_FALSE(bus.isConnected());
+
+	// 既に切断されている状態でshutdown()を呼び出しても問題ないことを確認
+	bus.shutdown();
+	EXPECT_FALSE(bus.isConnected());
+}

@@ -24,6 +24,9 @@ namespace MessageBus
 		/// @brief 接続を切断します
 		void disconnect();
 
+		/// @brief 接続を切断し、切断が完了するまで待機します
+		void shutdown();
+
 		/// @brief イベント処理を行います（メインループで毎フレーム呼び出す）
 		void update();
 
