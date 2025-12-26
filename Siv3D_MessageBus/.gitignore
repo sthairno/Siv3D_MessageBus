@@ -3,6 +3,7 @@ build/
 dest/
 .reference/
 .plan/
+cmake/siv3d_mac/
 
 *.user
 *.aps
