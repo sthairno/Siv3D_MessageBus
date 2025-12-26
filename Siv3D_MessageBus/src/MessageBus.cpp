@@ -299,7 +299,7 @@ namespace MessageBus
 
 	MessageBus::~MessageBus() = default;
 
-	void MessageBus::close()
+	void MessageBus::disconnect()
 	{
 		m_impl->conn.disconnect();
 	}

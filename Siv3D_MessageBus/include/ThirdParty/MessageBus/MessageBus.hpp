@@ -21,8 +21,8 @@ namespace MessageBus
 		/// @param password 認証パスワード（オプション）
 		MessageBus(s3d::StringView ip, s3d::uint16 port, s3d::Optional<s3d::StringView> password = s3d::none);
 
-		/// @brief MessageBusを終了します
-		void close();
+		/// @brief 接続を切断します
+		void disconnect();
 
 		/// @brief イベント処理を行います（メインループで毎フレーム呼び出す）
 		void update();
