@@ -16,6 +16,9 @@ namespace MessageBus
 	{
 	public:
 		/// @brief MessageBusを初期化します
+		MessageBus();
+
+		/// @brief MessageBusを初期化します
 		/// @param ip 接続先のIPアドレス
 		/// @param port 接続先のポート番号
 		/// @param password 認証パスワード（オプション）

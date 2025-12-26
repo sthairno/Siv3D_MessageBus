@@ -250,3 +250,108 @@ TEST_F(MessageBusEvents, ShutdownWhenDisconnected)
 	bus.shutdown();
 	EXPECT_FALSE(bus.isConnected());
 }
+
+// ============================================================================
+// MessageBus 空コンストラクタテスト
+// ============================================================================
+
+class MessageBusEmptyConstructor : public ::testing::Test
+{
+};
+
+TEST_F(MessageBusEmptyConstructor, DefaultConstructorCreatesEmptyBus)
+{
+	MessageBus::MessageBus bus;
+	EXPECT_FALSE(bus.isConnected());
+	EXPECT_TRUE(bus.error().isEmpty());
+}
+
+TEST_F(MessageBusEmptyConstructor, IsConnectedReturnsFalse)
+{
+	MessageBus::MessageBus bus;
+	EXPECT_FALSE(bus.isConnected());
+	EXPECT_FALSE(static_cast<bool>(bus));
+}
+
+TEST_F(MessageBusEmptyConstructor, ErrorReturnsEmptyString)
+{
+	MessageBus::MessageBus bus;
+	const auto& error = bus.error();
+	EXPECT_TRUE(error.isEmpty());
+}
+
+TEST_F(MessageBusEmptyConstructor, DisconnectIsSafe)
+{
+	MessageBus::MessageBus bus;
+	// 接続していない状態でdisconnect()を呼び出しても問題ないことを確認
+	bus.disconnect();
+	EXPECT_FALSE(bus.isConnected());
+}
+
+TEST_F(MessageBusEmptyConstructor, ShutdownIsSafe)
+{
+	MessageBus::MessageBus bus;
+	// 接続していない状態でshutdown()を呼び出しても問題ないことを確認
+	bus.shutdown();
+	EXPECT_FALSE(bus.isConnected());
+}
+
+TEST_F(MessageBusEmptyConstructor, UpdateIsSafe)
+{
+	MessageBus::MessageBus bus;
+	// 接続していない状態でupdate()を呼び出しても問題ないことを確認
+	bus.update();
+	EXPECT_FALSE(bus.isConnected());
+	const auto& events = bus.events();
+	EXPECT_TRUE(events.isEmpty());
+}
+
+TEST_F(MessageBusEmptyConstructor, SubscribeWorksWithoutConnection)
+{
+	MessageBus::MessageBus bus;
+	// connが空でもsubscribe()は動作する（チャンネル状態は保持される）
+	EXPECT_TRUE(bus.subscribe(U"test_channel"));
+	EXPECT_TRUE(bus.subscribe(U"another_channel"));
+}
+
+TEST_F(MessageBusEmptyConstructor, UnsubscribeWorksWithoutConnection)
+{
+	MessageBus::MessageBus bus;
+	// 購読していないチャンネルのunsubscribe()はfalseを返す
+	EXPECT_FALSE(bus.unsubscribe(U"not_subscribed"));
+
+	// 購読してからunsubscribe()は成功する
+	EXPECT_TRUE(bus.subscribe(U"test_channel"));
+	EXPECT_TRUE(bus.unsubscribe(U"test_channel"));
+}
+
+TEST_F(MessageBusEmptyConstructor, EmitReturnsFalseWithoutConnection)
+{
+	MessageBus::MessageBus bus;
+	// connが空の場合、emit()はfalseを返す
+	EXPECT_FALSE(bus.emit(U"test_channel"));
+	EXPECT_FALSE(bus.emit(U"test_channel", UR"({ "k": 1 })"_json));
+}
+
+TEST_F(MessageBusEmptyConstructor, VariableWorksWithoutConnection)
+{
+	MessageBus::MessageBus bus;
+	// connが空でもvariable()は動作する（変数は作成可能）
+	auto var1 = bus.variable<int32>(U"test_var", 42);
+	EXPECT_EQ(var1.get(), 42);
+
+	auto var2 = bus.variable<String>(U"test_string", U"hello");
+	EXPECT_EQ(var2.get(), U"hello");
+}
+
+TEST_F(MessageBusEmptyConstructor, EventsBufferIsEmpty)
+{
+	MessageBus::MessageBus bus;
+	const auto& events = bus.events();
+	EXPECT_TRUE(events.isEmpty());
+
+	// update()を呼び出してもイベントは空のまま
+	bus.update();
+	const auto& eventsAfterUpdate = bus.events();
+	EXPECT_TRUE(eventsAfterUpdate.isEmpty());
+}

@@ -23,7 +23,7 @@ namespace MessageBus
 
 	struct MessageBus::Impl
 	{
-		detail::RedisConnection conn;
+		std::unique_ptr<detail::RedisConnection> conn;
 
 		struct ChannelState
 		{
@@ -38,8 +38,10 @@ namespace MessageBus
 
 		s3d::HashTable<std::string, std::shared_ptr<detail::SharedVariableImpl>> variables;
 
+		Impl() = default;
+
 		Impl(s3d::StringView ip, s3d::uint16 port, s3d::Optional<s3d::StringView> password)
-			: conn(detail::RedisConnectionOptions{
+			: conn(std::make_unique<detail::RedisConnection>(detail::RedisConnectionOptions{
 				.ip = ip,
 				.port = port,
 				.password = password,
@@ -56,7 +58,7 @@ namespace MessageBus
 				.onInvalidate = [this](redisAsyncContext* context, const s3d::Array<std::string>& keys) {
 					handleInvalidate(context, keys);
 				}
-			})
+				}))
 		{
 		}
 
@@ -207,13 +209,18 @@ namespace MessageBus
 
 		bool emit(StringView channel, Optional<JSON> payload)
 		{
-			if (not ValidateChannelName(channel) ||
-				conn.state() != detail::RedisConnectionState::Connected)
+			if (not conn)
 			{
 				return false;
 			}
 
-			auto* context = conn.context();
+			if (not ValidateChannelName(channel) ||
+				conn->state() != detail::RedisConnectionState::Connected)
+			{
+				return false;
+			}
+
+			auto* context = conn->context();
 			if (!context)
 			{
 				return false;
@@ -293,6 +300,11 @@ namespace MessageBus
 		}
 	};
 
+	MessageBus::MessageBus()
+		: m_impl(std::make_unique<Impl>())
+	{
+	}
+
 	MessageBus::MessageBus(s3d::StringView ip, s3d::uint16 port, s3d::Optional<s3d::StringView> password)
 		: m_impl(std::make_unique<Impl>(ip, port, password))
 	{
@@ -302,21 +314,29 @@ namespace MessageBus
 
 	void MessageBus::disconnect()
 	{
-		m_impl->conn.disconnect();
+		if (m_impl->conn)
+		{
+			m_impl->conn->disconnect();
+		}
 	}
 
 	void MessageBus::shutdown()
 	{
-		if (m_impl->conn.state() == detail::RedisConnectionState::Connected &&
-			not m_impl->conn.isDisconnecting())
+		if (!m_impl->conn)
 		{
-			m_impl->conn.disconnect();
+			return;
 		}
 
-		while (m_impl->conn.state() == detail::RedisConnectionState::Connected)
+		if (m_impl->conn->state() == detail::RedisConnectionState::Connected &&
+			not m_impl->conn->isDisconnecting())
+		{
+			m_impl->conn->disconnect();
+		}
+
+		while (m_impl->conn->state() == detail::RedisConnectionState::Connected)
 		{
 			std::this_thread::yield();
-			m_impl->conn.tick();
+			m_impl->conn->tick();
 		}
 	}
 
@@ -324,27 +344,41 @@ namespace MessageBus
 	{
 		m_impl->clearEventsBuffer();
 
+		if (!m_impl->conn)
+		{
+			return;
+		}
+
 		// conn.tick の直前に差分バッチ送信
-		if (m_impl->conn.state() == detail::RedisConnectionState::Connected)
+		if (m_impl->conn->state() == detail::RedisConnectionState::Connected)
 		{
 			if (m_impl->channelsDirty)
 			{
-				m_impl->reconcileSubscriptions(m_impl->conn.context());
+				m_impl->reconcileSubscriptions(m_impl->conn->context());
 			}
-			m_impl->syncVariables(m_impl->conn.context());
+			m_impl->syncVariables(m_impl->conn->context());
 		}
 
-		m_impl->conn.tick();
+		m_impl->conn->tick();
 	}
 
 	bool MessageBus::isConnected() const
 	{
-		return m_impl->conn.state() == detail::RedisConnectionState::Connected;
+		if (!m_impl->conn)
+		{
+			return false;
+		}
+		return m_impl->conn->state() == detail::RedisConnectionState::Connected;
 	}
 
 	const s3d::String& MessageBus::error() const
 	{
-		return m_impl->conn.error();
+		if (!m_impl->conn)
+		{
+			static const s3d::String empty;
+			return empty;
+		}
+		return m_impl->conn->error();
 	}
 
 	bool MessageBus::subscribe(s3d::StringView channel)
