@@ -205,4 +205,6 @@ void Main()
 			currentBoard = newBoard;
 		}
 	}
+
+	bus.shutdown();
 }
