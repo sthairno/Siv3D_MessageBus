@@ -29,17 +29,11 @@ Siv3D_MessageBus は、Siv3Dアプリケーション間でメッセージをや�
     | --- |
 2. ダウンロードした ZIP ファイルを任意の作業フォルダに展開します
     
-    https://github.com/user-attachments/assets/332176ee-b63c-4221-b9b2-30aa3a1da5bc
-
 ### Step 3. SDK フォルダへファイルをコピーする
 
-1. OpenSiv3D SDK のインストール先フォルダを開きます。手早く開きたい場合は `Win` + `R` キーを押し、次のコマンドを実行してください
+1. 展開したフォルダ内にある `Open OpenSiv3D SDK` というショートカットをダブルクリックします。OpenSiv3D SDK のインストール先フォルダが自動的に開きます
 
-   ```
-   explorer.exe %SIV3D_0_6_16%
-   ```
-
-2. 展開した Siv3D_MessageBus の中身を、OpenSiv3D SDK フォルダへそのままコピーします
+2. 展開した Siv3D_MessageBus の `include` フォルダと `lib` フォルダを、開いた OpenSiv3D SDK フォルダへそのままコピーします
 
 ### Step 4. Redisサーバーを起動する
 
