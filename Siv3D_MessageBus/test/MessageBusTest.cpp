@@ -29,6 +29,30 @@ TEST_F(MessageBusBasic, ConnectionSuccess)
 	WaitForConnection(bus, 10s);
 };
 
+TEST_F(MessageBusBasic, ConnectFromDefaultConstructorThenConnectNotAllowed)
+{
+	MessageBus::MessageBus bus{};
+
+	EXPECT_FALSE(bus.isConnected());
+	bus.connect(U"127.0.0.1", 6379, none);
+	WaitForConnection(bus, 10s);
+
+	EXPECT_THROW(
+		bus.connect(U"127.0.0.1", 6379, none),
+		MessageBus::ConnectNotAllowedError
+	);
+}
+
+TEST_F(MessageBusBasic, ConnectNotAllowedIfAddressConstructorUsed)
+{
+	MessageBus::MessageBus bus{ U"127.0.0.1", 6379, none };
+
+	EXPECT_THROW(
+		bus.connect(U"127.0.0.1", 6379, none),
+		MessageBus::ConnectNotAllowedError
+	);
+}
+
 // ============================================================================
 // MessageBus認証テスト
 // ============================================================================

@@ -1,4 +1,5 @@
 #include "MessageBus/MessageBus.hpp"
+#include "MessageBus/ConnectNotAllowedError.hpp"
 #include "MessageBus/detail/RedisConnection.hpp"
 #include "MessageBus/SharedVariable.hpp"
 #include "MessageBus/detail/SharedVariableImpl.hpp"
@@ -41,7 +42,13 @@ namespace MessageBus
 		Impl() = default;
 
 		Impl(s3d::StringView ip, s3d::uint16 port, s3d::Optional<s3d::StringView> password)
-			: conn(std::make_unique<detail::RedisConnection>(detail::RedisConnectionOptions{
+		{
+			createConnection(ip, port, password);
+		}
+
+		void createConnection(s3d::StringView ip, s3d::uint16 port, s3d::Optional<s3d::StringView> password)
+		{
+			conn = std::make_unique<detail::RedisConnection>(detail::RedisConnectionOptions{
 				.ip = ip,
 				.port = port,
 				.password = password,
@@ -58,8 +65,7 @@ namespace MessageBus
 				.onInvalidate = [this](redisAsyncContext* context, const s3d::Array<std::string>& keys) {
 					handleInvalidate(context, keys);
 				}
-				}))
-		{
+			});
 		}
 
 		void clearEventsBuffer()
@@ -311,6 +317,16 @@ namespace MessageBus
 	}
 
 	MessageBus::~MessageBus() = default;
+
+	void MessageBus::connect(s3d::StringView ip, s3d::uint16 port, s3d::Optional<s3d::StringView> password)
+	{
+		if (m_impl->conn)
+		{
+			throw ConnectNotAllowedError();
+		}
+
+		m_impl->createConnection(ip, port, password);
+	}
 
 	void MessageBus::disconnect()
 	{

@@ -2,6 +2,7 @@
 
 #include "WindowsLibrary.hpp"
 #include "SharedVariable.hpp"
+#include "ConnectNotAllowedError.hpp"
 #include <memory>
 
 #include <Siv3D/StringView.hpp>
@@ -23,6 +24,13 @@ namespace MessageBus
 		/// @param port 接続先のポート番号
 		/// @param password 認証パスワード（オプション）
 		MessageBus(s3d::StringView ip, s3d::uint16 port, s3d::Optional<s3d::StringView> password = s3d::none);
+
+		/// @brief 接続情報を設定して接続を開始します
+		/// @param ip 接続先のIPアドレス
+		/// @param port 接続先のポート番号
+		/// @param password 認証パスワード（オプション）
+		/// @throws ConnectNotAllowedError 既に接続情報が設定済みの場合
+		void connect(s3d::StringView ip, s3d::uint16 port, s3d::Optional<s3d::StringView> password = s3d::none);
 
 		/// @brief 接続を切断します
 		void disconnect();
