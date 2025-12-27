@@ -57,6 +57,8 @@ void Main()
     {
         bus.update();
     }
+
+    bus.shutdown();
 }
 ```
 
