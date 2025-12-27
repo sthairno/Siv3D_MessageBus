@@ -74,7 +74,7 @@ static void WaitForConnection(MessageBus::MessageBus& bus, Duration timeout = 30
 	Stopwatch sw{ StartImmediately::Yes };
 	while (sw.elapsed() < timeout)
 	{
-		bus.tick();
+		bus.update();
 		if (bus.isConnected()) return;
 		System::Sleep(TICK_INTERVAL);
 	}
@@ -87,7 +87,7 @@ static void WaitForDisconnect(MessageBus::MessageBus& bus, Duration timeout = 30
 	Stopwatch sw{ StartImmediately::Yes };
 	while (sw.elapsed() < timeout)
 	{
-		bus.tick();
+		bus.update();
 		if (!bus.isConnected()) return;
 		System::Sleep(TICK_INTERVAL);
 	}
@@ -101,7 +101,7 @@ static bool WaitForEvent(MessageBus::MessageBus& bus, Duration timeout = 5s)
 	Stopwatch sw{ StartImmediately::Yes };
 	while (sw < timeout)
 	{
-		bus.tick();
+		bus.update();
 		const auto& evs = bus.events();
 		if (!evs.isEmpty()) return true;
 		System::Sleep(TICK_INTERVAL);
@@ -114,7 +114,7 @@ static void Sleep(MessageBus::MessageBus& bus, Duration time)
 	Stopwatch sw{ StartImmediately::Yes };
 	while (sw < time)
 	{
-		bus.tick();
+		bus.update();
 		System::Sleep(TICK_INTERVAL);
 	}
 }

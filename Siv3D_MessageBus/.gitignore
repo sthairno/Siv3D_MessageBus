@@ -3,6 +3,7 @@ build/
 dest/
 .reference/
 .plan/
+.venv/
 
 *.user
 *.aps

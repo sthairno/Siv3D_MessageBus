@@ -35,6 +35,7 @@ get_target_property(SIV3D_INCLUDE_DIRS Siv3D::Siv3D INTERFACE_INCLUDE_DIRECTORIE
 
 add_library(siv3d-messagebus SHARED
     src/MessageBus.cpp
+    src/ConnectNotAllowedError.cpp
     src/RedisConnection.cpp
     src/SharedVariable.cpp
     src/SharedVariableImpl.cpp

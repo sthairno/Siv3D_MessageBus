@@ -4,6 +4,11 @@ import shutil
 import sys
 from pathlib import Path
 
+try:
+    import win32com.client
+except ImportError:
+    win32com = None
+
 class PackagingError(RuntimeError):
     pass
 
@@ -11,6 +16,24 @@ def resolve_path(path: Path, description: str) -> Path:
     if not path.exists():
         raise PackagingError(f"Required resource not found: {description} -> {path}")
     return path.resolve()
+
+def create_shortcut(lnk_path: Path, target_path: str, arguments: str = "") -> None:
+    """Create a Windows shortcut (.lnk) file.
+    
+    Args:
+        lnk_path: Path where the .lnk file will be created
+        target_path: Path to the target executable
+        arguments: Command-line arguments for the target
+    """
+    if win32com is None:
+        raise PackagingError("win32com.client is not available. Please install pywin32.")
+    
+    ws = win32com.client.Dispatch("wscript.shell")
+    scut = ws.CreateShortcut(str(lnk_path))
+    scut.TargetPath = target_path
+    if arguments:
+        scut.Arguments = arguments
+    scut.Save()
 
 def main() -> int:
     script_root = Path(__file__).resolve().parent
@@ -75,6 +98,14 @@ def main() -> int:
 
         print("Copying HOW_TO_INSTALL.md...")
         shutil.copy2(readme_source, readme_dest)
+
+        print("Creating shortcut to OpenSiv3D SDK folder...")
+        shortcut_path = dest_root / "Open OpenSiv3D SDK.lnk"
+        create_shortcut(
+            shortcut_path,
+            "explorer.exe",
+            "%SIV3D_0_6_16%"
+        )
 
         print(f"Package layout prepared at: {dest_root}")
         return 0
