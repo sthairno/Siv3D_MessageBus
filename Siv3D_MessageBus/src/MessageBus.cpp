@@ -343,13 +343,14 @@ namespace MessageBus
 			return;
 		}
 
-		if (m_impl->conn->state() == detail::RedisConnectionState::Connected &&
-			not m_impl->conn->isDisconnecting())
+		auto state = m_impl->conn->state();
+		if (state != detail::RedisConnectionState::Disconnected &&
+			state != detail::RedisConnectionState::Disconnecting)
 		{
 			m_impl->conn->disconnect();
 		}
 
-		while (m_impl->conn->state() == detail::RedisConnectionState::Connected)
+		while (m_impl->conn->state() != detail::RedisConnectionState::Disconnected)
 		{
 			std::this_thread::yield();
 			m_impl->conn->tick();

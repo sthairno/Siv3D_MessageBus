@@ -73,7 +73,8 @@ TEST_F(RedisConnectionBasic, ReconnectOnDisconnect)
 
 	StopContainer();
 
-	EXPECT_EQ(WaitForNextState(conn, 10s), MessageBus::detail::RedisConnectionState::Failed);
+	EXPECT_EQ(WaitForNextState(conn, 10s), MessageBus::detail::RedisConnectionState::Disconnected);
+	EXPECT_TRUE(conn.isFailed());
 	EXPECT_TRUE(conn.isReconnecting());
 
 	StartContainer();
@@ -150,7 +151,8 @@ TEST_F(RedisConnectionBasic, DisconnectWhileHandshaking)
 
 	StopContainer();
 
-	EXPECT_TRUE(WaitForState(conn, MessageBus::detail::RedisConnectionState::Failed, 30s));
+	EXPECT_TRUE(WaitForState(conn, MessageBus::detail::RedisConnectionState::Disconnected, 30s));
+	EXPECT_TRUE(conn.isFailed());
 	EXPECT_TRUE(conn.isReconnecting());
 	EXPECT_EQ(WaitForNextState(conn, 30s), MessageBus::detail::RedisConnectionState::Connecting);
 
@@ -163,7 +165,8 @@ TEST_F(RedisConnectionBasic, InvalidHost)
 
 	EXPECT_EQ(conn.state(), MessageBus::detail::RedisConnectionState::Connecting);
 	// OSによってタイムアウト判定に時間がかかるので、長めにとっておく
-	EXPECT_EQ(WaitForNextState(conn, 300s), MessageBus::detail::RedisConnectionState::Failed);
+	EXPECT_EQ(WaitForNextState(conn, 300s), MessageBus::detail::RedisConnectionState::Disconnected);
+	EXPECT_TRUE(conn.isFailed());
 	EXPECT_TRUE(conn.isReconnecting());
 }
 
@@ -172,7 +175,8 @@ TEST_F(RedisConnectionBasic, InvalidPort)
 	MessageBus::detail::RedisConnection conn{ { U"127.0.0.1", 6380, none } };
 
 	EXPECT_EQ(conn.state(), MessageBus::detail::RedisConnectionState::Connecting);
-	EXPECT_EQ(WaitForNextState(conn, 60s), MessageBus::detail::RedisConnectionState::Failed);
+	EXPECT_EQ(WaitForNextState(conn, 60s), MessageBus::detail::RedisConnectionState::Disconnected);
+	EXPECT_TRUE(conn.isFailed());
 	EXPECT_TRUE(conn.isReconnecting());
 }
 
@@ -182,7 +186,8 @@ TEST_F(RedisConnectionBasic, NoPasswordNeeded)
 
 	EXPECT_EQ(conn.state(), MessageBus::detail::RedisConnectionState::Connecting);
 	EXPECT_EQ(WaitForNextState(conn, 10s), MessageBus::detail::RedisConnectionState::AuthSent);
-	EXPECT_EQ(WaitForNextState(conn, 10s), MessageBus::detail::RedisConnectionState::Failed);
+	EXPECT_EQ(WaitForNextState(conn, 10s), MessageBus::detail::RedisConnectionState::Disconnected);
+	EXPECT_TRUE(conn.isFailed());
 	EXPECT_FALSE(conn.isReconnecting());
 }
 
@@ -244,7 +249,8 @@ TEST_F(RedisConnectionAuth, ConnectionWithWrongPassword)
 
 	EXPECT_EQ(conn.state(), MessageBus::detail::RedisConnectionState::Connecting);
 	EXPECT_EQ(WaitForNextState(conn, 10s), MessageBus::detail::RedisConnectionState::AuthSent);
-	EXPECT_EQ(WaitForNextState(conn, 10s), MessageBus::detail::RedisConnectionState::Failed);
+	EXPECT_EQ(WaitForNextState(conn, 10s), MessageBus::detail::RedisConnectionState::Disconnected);
+	EXPECT_TRUE(conn.isFailed());
 	EXPECT_FALSE(conn.isReconnecting());
 }
 
@@ -254,7 +260,8 @@ TEST_F(RedisConnectionAuth, ConnectionWithoutPassword)
 
 	EXPECT_EQ(conn.state(), MessageBus::detail::RedisConnectionState::Connecting);
 	EXPECT_EQ(WaitForNextState(conn, 10s), MessageBus::detail::RedisConnectionState::HelloSent);
-	EXPECT_EQ(WaitForNextState(conn, 10s), MessageBus::detail::RedisConnectionState::Failed);
+	EXPECT_EQ(WaitForNextState(conn, 10s), MessageBus::detail::RedisConnectionState::Disconnected);
+	EXPECT_TRUE(conn.isFailed());
 	EXPECT_FALSE(conn.isReconnecting());
 }
 
@@ -283,6 +290,7 @@ TEST_F(RedisConnectionOldServer, ConnectionToOldServer)
 
 	EXPECT_EQ(conn.state(), MessageBus::detail::RedisConnectionState::Connecting);
 	EXPECT_EQ(WaitForNextState(conn, 10s), MessageBus::detail::RedisConnectionState::HelloSent);
-	EXPECT_EQ(WaitForNextState(conn, 10s), MessageBus::detail::RedisConnectionState::Failed);
+	EXPECT_EQ(WaitForNextState(conn, 10s), MessageBus::detail::RedisConnectionState::Disconnected);
+	EXPECT_TRUE(conn.isFailed());
 	EXPECT_FALSE(conn.isReconnecting());
 }

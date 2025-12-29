@@ -14,7 +14,7 @@ namespace MessageBus::detail
 		ClientTrackingSent, // CLIENT TRACKING送信済み、応答待ち
 		AuthSent,           // AUTH送信済み、応答待ち（パスワードありの場合）
 		Connected,          // 接続確立完了
-		Failed              // 接続失敗（認証エラー等）
+		Disconnecting       // 切断処理中
 	};
 
 	// Siv3D Formatter 対応
@@ -28,7 +28,7 @@ namespace MessageBus::detail
 		case RedisConnectionState::ClientTrackingSent: formatData.string += U"ClientTrackingSent"; break;
 		case RedisConnectionState::AuthSent:           formatData.string += U"AuthSent"; break;
 		case RedisConnectionState::Connected:          formatData.string += U"Connected"; break;
-		case RedisConnectionState::Failed:             formatData.string += U"Failed"; break;
+		case RedisConnectionState::Disconnecting:      formatData.string += U"Disconnecting"; break;
 		}
 	}
 }
@@ -49,13 +49,13 @@ struct fmt::formatter<MessageBus::detail::RedisConnectionState, Char>
 		const char* ascii = "";
 		switch (value)
 		{
-		case MessageBus::detail::RedisConnectionState::Disconnected:       ascii = "Disconnected"; break;
-		case MessageBus::detail::RedisConnectionState::Connecting:         ascii = "Connecting";   break;
-		case MessageBus::detail::RedisConnectionState::HelloSent:          ascii = "HelloSent";    break;
+		case MessageBus::detail::RedisConnectionState::Disconnected:       ascii = "Disconnected";  break;
+		case MessageBus::detail::RedisConnectionState::Connecting:         ascii = "Connecting";    break;
+		case MessageBus::detail::RedisConnectionState::HelloSent:          ascii = "HelloSent";     break;
 		case MessageBus::detail::RedisConnectionState::ClientTrackingSent: ascii = "ClientTrackingSent"; break;
-		case MessageBus::detail::RedisConnectionState::AuthSent:           ascii = "AuthSent";     break;
-		case MessageBus::detail::RedisConnectionState::Connected:          ascii = "Connected";    break;
-		case MessageBus::detail::RedisConnectionState::Failed:             ascii = "Failed";       break;
+		case MessageBus::detail::RedisConnectionState::AuthSent:           ascii = "AuthSent";      break;
+		case MessageBus::detail::RedisConnectionState::Connected:          ascii = "Connected";     break;
+		case MessageBus::detail::RedisConnectionState::Disconnecting:      ascii = "Disconnecting"; break;
 		}
 
 		auto out = ctx.out();
