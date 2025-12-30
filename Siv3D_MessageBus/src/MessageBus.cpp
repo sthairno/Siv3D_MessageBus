@@ -55,7 +55,7 @@ namespace MessageBus
 				.heartbeatInterval = s3d::Seconds{ 10 },
 				.onConnect = nullptr,
 				.onReady = [this](redisAsyncContext* context) {
-					reconcileSubscriptions(context);
+					syncSubscriptions(context);
 					syncVariables(context);
 				},
 				.onDisconnect = [this]() {
@@ -126,7 +126,7 @@ namespace MessageBus
 			channelsDirty = true;
 		}
 
-		void reconcileSubscriptions(redisAsyncContext* context)
+		void syncSubscriptions(redisAsyncContext* context)
 		{
 			if (!context) return;
 
@@ -330,10 +330,12 @@ namespace MessageBus
 
 	void MessageBus::disconnect()
 	{
-		if (m_impl->conn)
+		if (!m_impl->conn)
 		{
-			m_impl->conn->disconnect();
+			return;
 		}
+
+		m_impl->conn->disconnect();
 	}
 
 	void MessageBus::shutdown()
@@ -347,7 +349,7 @@ namespace MessageBus
 		if (state != detail::RedisConnectionState::Disconnected &&
 			state != detail::RedisConnectionState::Disconnecting)
 		{
-			m_impl->conn->disconnect();
+			disconnect();
 		}
 
 		while (m_impl->conn->state() != detail::RedisConnectionState::Disconnected)
@@ -371,7 +373,7 @@ namespace MessageBus
 		{
 			if (m_impl->channelsDirty)
 			{
-				m_impl->reconcileSubscriptions(m_impl->conn->context());
+				m_impl->syncSubscriptions(m_impl->conn->context());
 			}
 			m_impl->syncVariables(m_impl->conn->context());
 		}
