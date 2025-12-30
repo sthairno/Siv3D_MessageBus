@@ -202,9 +202,9 @@ namespace MessageBus::detail
 		if (m_state == RedisConnectionState::Connected)
 		{
 			// 接続確立済みの場合は正常に切断
-			
-			redisAsyncDisconnect(m_context);
+
 			setState(RedisConnectionState::Disconnecting);
+			redisAsyncDisconnect(m_context); // NOTE: Sometimes this function will call onDisconnectCallback immediately
 		}
 		else
 		{
@@ -254,12 +254,12 @@ namespace MessageBus::detail
 	{
 		RedisConnection* self = static_cast<RedisConnection*>(ac->data);
 
-		self->setState(RedisConnectionState::Disconnected);
-
 		// 既にエラー処理済み（isFailed==true で requestDisconnect() 経由）の場合は
 		// 追加のエラー処理はスキップ
 		bool disconnectedByError =
 			self->m_isFailed && self->m_state == RedisConnectionState::Disconnecting && status == REDIS_OK;
+
+		self->setState(RedisConnectionState::Disconnected);
 
 		if (not disconnectedByError)
 		{
