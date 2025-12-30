@@ -142,6 +142,7 @@ jobs:
       - name: Run Test (Debug)
         working-directory: Siv3D_MessageBus
         run: python3 scripts/test.py Debug
+        timeout-minutes: 10
 
   deploy:
     if: github.ref == 'refs/heads/main'
