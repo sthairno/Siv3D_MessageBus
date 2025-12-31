@@ -390,6 +390,15 @@ namespace MessageBus
 		return m_impl->conn->state() == detail::RedisConnectionState::Connected;
 	}
 
+	bool MessageBus::isDisconnecting() const
+	{
+		if (!m_impl->conn)
+		{
+			return false;
+		}
+		return m_impl->conn->state() == detail::RedisConnectionState::Disconnecting;
+	}
+
 	const s3d::String& MessageBus::error() const
 	{
 		if (!m_impl->conn)

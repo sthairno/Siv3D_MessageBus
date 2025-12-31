@@ -46,6 +46,11 @@ namespace MessageBus
 		[[nodiscard]]
 		bool isConnected() const;
 
+		/// @brief 切断中かどうかを取得します
+		/// @return 切断中の場合 true
+		[[nodiscard]]
+		bool isDisconnecting() const;
+
 		/// @brief 接続状態を取得します
 		/// @return 接続済みの場合 true
 		[[nodiscard]]

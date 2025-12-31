@@ -275,6 +275,40 @@ TEST_F(MessageBusEvents, ShutdownWhenDisconnected)
 	EXPECT_FALSE(bus.isConnected());
 }
 
+TEST_F(MessageBusEvents, ShutdownWhenDisconnecting)
+{
+	MessageBus::MessageBus bus{ U"127.0.0.1", 6379, none };
+	WaitForConnection(bus, 10s);
+	ASSERT_TRUE(bus.isConnected());
+
+	// Disconnecting状態を作るため送信中の処理を追加しておく
+	bus.variable<int32>(U"dummy", 0);
+
+	// Subscribeがあるとdisconnectingにならない問題がある
+	// https://github.com/redis/hiredis/issues/1320
+	// TODO: 問題が解決したらコメントアウト解除
+	//
+	// bus.subscribe(U"test");
+	
+	bus.update();
+
+	bus.disconnect();
+	ASSERT_TRUE(bus.isDisconnecting());
+	bus.shutdown();
+
+	EXPECT_FALSE(bus.isConnected());
+}
+
+TEST_F(MessageBusEvents, ShutdownWhenConnecting)
+{
+	MessageBus::MessageBus bus{ U"127.0.0.1", 6379, none };
+
+	bus.shutdown();
+
+	EXPECT_FALSE(bus.isConnected());
+	EXPECT_FALSE(bus.isDisconnecting());
+}
+
 // ============================================================================
 // MessageBus 空コンストラクタテスト
 // ============================================================================
