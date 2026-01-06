@@ -4,6 +4,7 @@ dest/
 .reference/
 .plan/
 cmake/siv3d_mac/
+.venv/
 
 *.user
 *.aps

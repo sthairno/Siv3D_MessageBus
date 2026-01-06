@@ -1,4 +1,5 @@
 #include "MessageBus/MessageBus.hpp"
+#include "MessageBus/ConnectNotAllowedError.hpp"
 #include "MessageBus/detail/RedisConnection.hpp"
 #include "MessageBus/SharedVariable.hpp"
 #include "MessageBus/detail/SharedVariableImpl.hpp"
@@ -6,6 +7,7 @@
 #include <Siv3D/Unicode.hpp>
 #include <Siv3D/HashTable.hpp>
 #include <memory>
+#include <thread>
 
 extern "C" {
 #include <hiredis/async.h>
@@ -22,7 +24,7 @@ namespace MessageBus
 
 	struct MessageBus::Impl
 	{
-		detail::RedisConnection conn;
+		std::unique_ptr<detail::RedisConnection> conn;
 
 		struct ChannelState
 		{
@@ -37,15 +39,23 @@ namespace MessageBus
 
 		s3d::HashTable<std::string, std::shared_ptr<detail::SharedVariableImpl>> variables;
 
+		Impl() = default;
+
 		Impl(s3d::StringView ip, s3d::uint16 port, s3d::Optional<s3d::StringView> password)
-			: conn(detail::RedisConnectionOptions{
+		{
+			createConnection(ip, port, password);
+		}
+
+		void createConnection(s3d::StringView ip, s3d::uint16 port, s3d::Optional<s3d::StringView> password)
+		{
+			conn = std::make_unique<detail::RedisConnection>(detail::RedisConnectionOptions{
 				.ip = ip,
 				.port = port,
 				.password = password,
 				.heartbeatInterval = s3d::Seconds{ 10 },
 				.onConnect = nullptr,
 				.onReady = [this](redisAsyncContext* context) {
-					reconcileSubscriptions(context);
+					syncSubscriptions(context);
 					syncVariables(context);
 				},
 				.onDisconnect = [this]() {
@@ -55,8 +65,7 @@ namespace MessageBus
 				.onInvalidate = [this](redisAsyncContext* context, const s3d::Array<std::string>& keys) {
 					handleInvalidate(context, keys);
 				}
-			})
-		{
+			});
 		}
 
 		void clearEventsBuffer()
@@ -117,7 +126,7 @@ namespace MessageBus
 			channelsDirty = true;
 		}
 
-		void reconcileSubscriptions(redisAsyncContext* context)
+		void syncSubscriptions(redisAsyncContext* context)
 		{
 			if (!context) return;
 
@@ -206,13 +215,18 @@ namespace MessageBus
 
 		bool emit(StringView channel, Optional<JSON> payload)
 		{
-			if (not ValidateChannelName(channel) ||
-				conn.state() != detail::RedisConnectionState::Connected)
+			if (not conn)
 			{
 				return false;
 			}
 
-			auto* context = conn.context();
+			if (not ValidateChannelName(channel) ||
+				conn->state() != detail::RedisConnectionState::Connected)
+			{
+				return false;
+			}
+
+			auto* context = conn->context();
 			if (!context)
 			{
 				return false;
@@ -292,6 +306,11 @@ namespace MessageBus
 		}
 	};
 
+	MessageBus::MessageBus()
+		: m_impl(std::make_unique<Impl>())
+	{
+	}
+
 	MessageBus::MessageBus(s3d::StringView ip, s3d::uint16 port, s3d::Optional<s3d::StringView> password)
 		: m_impl(std::make_unique<Impl>(ip, port, password))
 	{
@@ -299,36 +318,95 @@ namespace MessageBus
 
 	MessageBus::~MessageBus() = default;
 
-	void MessageBus::close()
+	void MessageBus::connect(s3d::StringView ip, s3d::uint16 port, s3d::Optional<s3d::StringView> password)
 	{
-		m_impl->conn.disconnect();
+		if (m_impl->conn)
+		{
+			throw ConnectNotAllowedError();
+		}
+
+		m_impl->createConnection(ip, port, password);
+	}
+
+	void MessageBus::disconnect()
+	{
+		if (!m_impl->conn)
+		{
+			return;
+		}
+
+		m_impl->conn->disconnect();
+	}
+
+	void MessageBus::shutdown()
+	{
+		if (!m_impl->conn)
+		{
+			return;
+		}
+
+		auto state = m_impl->conn->state();
+		if (state != detail::RedisConnectionState::Disconnected &&
+			state != detail::RedisConnectionState::Disconnecting)
+		{
+			disconnect();
+		}
+
+		while (m_impl->conn->state() != detail::RedisConnectionState::Disconnected)
+		{
+			std::this_thread::yield();
+			m_impl->conn->tick();
+		}
 	}
 
 	void MessageBus::update()
 	{
 		m_impl->clearEventsBuffer();
 
+		if (!m_impl->conn)
+		{
+			return;
+		}
+
 		// conn.tick の直前に差分バッチ送信
-		if (m_impl->conn.state() == detail::RedisConnectionState::Connected)
+		if (m_impl->conn->state() == detail::RedisConnectionState::Connected)
 		{
 			if (m_impl->channelsDirty)
 			{
-				m_impl->reconcileSubscriptions(m_impl->conn.context());
+				m_impl->syncSubscriptions(m_impl->conn->context());
 			}
-			m_impl->syncVariables(m_impl->conn.context());
+			m_impl->syncVariables(m_impl->conn->context());
 		}
 
-		m_impl->conn.tick();
+		m_impl->conn->tick();
 	}
 
 	bool MessageBus::isConnected() const
 	{
-		return m_impl->conn.state() == detail::RedisConnectionState::Connected;
+		if (!m_impl->conn)
+		{
+			return false;
+		}
+		return m_impl->conn->state() == detail::RedisConnectionState::Connected;
+	}
+
+	bool MessageBus::isDisconnecting() const
+	{
+		if (!m_impl->conn)
+		{
+			return false;
+		}
+		return m_impl->conn->state() == detail::RedisConnectionState::Disconnecting;
 	}
 
 	const s3d::String& MessageBus::error() const
 	{
-		return m_impl->conn.error();
+		if (!m_impl->conn)
+		{
+			static const s3d::String empty;
+			return empty;
+		}
+		return m_impl->conn->error();
 	}
 
 	bool MessageBus::subscribe(s3d::StringView channel)

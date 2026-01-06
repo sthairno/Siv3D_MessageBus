@@ -29,6 +29,8 @@ void Main()
 	{
 		bus.update();
 	}
+
+	bus.shutdown();
 }
 ```
 
@@ -49,6 +51,8 @@ void Main()
 		// 通信処理を実行
 		bus.update();
 	}
+
+	bus.shutdown();
 }
 ```
 
@@ -78,6 +82,30 @@ void Main()
 			Print << U"Disconnected: " << bus.error();
 		}
 	}
+
+	bus.shutdown();
+}
+```
+
+### 1.4 終了処理
+- `shutdown()` は接続を切断し、切断が完了するまで待機します
+- これにより、リソースが適切にクリーンアップされ、接続が確実に終了します
+
+```cpp
+# include <Siv3D.hpp>
+# include <MessageBus/MessageBus.hpp>
+
+void Main()
+{
+	MessageBus::MessageBus bus{ U"localhost", 6379 };
+
+	while (System::Update())
+	{
+		bus.update();
+	}
+
+	// 必ず終了前に shutdown() を呼び出す
+	bus.shutdown();
 }
 ```
 
@@ -107,6 +135,8 @@ void Main()
 			bus.emit(U"game/start", JSON{ {U"stage", 1} });
 		}
 	}
+
+	bus.shutdown();
 }
 ```
 
@@ -140,6 +170,8 @@ void Main()
 			}
 		}
 	}
+
+	bus.shutdown();
 }
 ```
 
@@ -170,6 +202,8 @@ void Main()
 	{
 		bus.update();
 	}
+
+	bus.shutdown();
 }
 ```
 
@@ -202,5 +236,7 @@ void Main()
 			score.set(score.get() + 100);
 		}
 	}
+
+	bus.shutdown();
 }
 ```

@@ -83,7 +83,8 @@ TEST_F(RedisConnectionPush, ReceiveInvalidatePushAfterReconnect)
 
 	// いったんRedisサーバーを停止し、再接続させる
 	StopContainer();
-	EXPECT_TRUE(WaitForState(conn, MessageBus::detail::RedisConnectionState::Failed, 30s));
+	EXPECT_TRUE(WaitForState(conn, MessageBus::detail::RedisConnectionState::Disconnected, 30s));
+	EXPECT_TRUE(conn.isFailed());
 	EXPECT_TRUE(conn.isReconnecting());
 
 	StartContainer();

@@ -44,6 +44,7 @@ endif()
 
 add_library(siv3d-messagebus SHARED
     src/MessageBus.cpp
+    src/ConnectNotAllowedError.cpp
     src/RedisConnection.cpp
     src/SharedVariable.cpp
     src/SharedVariableImpl.cpp
