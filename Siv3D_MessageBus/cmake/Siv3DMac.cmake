@@ -4,16 +4,19 @@
 # 存在しない場合は自動的にダウンロード・展開を行う
 
 set(SIV3D_MAC_ROOT "${CMAKE_CURRENT_LIST_DIR}/siv3d_mac")
-set(SIV3D_MAC_INCLUDE_DIR "${SIV3D_MAC_ROOT}/include")
-set(SIV3D_MAC_LIB_DIR "${SIV3D_MAC_ROOT}/lib/macOS")
 set(SIV3D_MAC_VERSION "0.6.16")
 set(SIV3D_MAC_ZIP_URL "https://siv3d.jp/downloads/Siv3D/siv3d_v${SIV3D_MAC_VERSION}_macOS.zip")
 set(SIV3D_MAC_ZIP_NAME "siv3d_v${SIV3D_MAC_VERSION}_macOS.zip")
 set(SIV3D_MAC_EXTRACTED_DIR_NAME "siv3d_v${SIV3D_MAC_VERSION}_macOS")
 
+# macOSフレームワークを検索（OpenCVとSiv3Dのオーディオ処理で必要）
+find_library(AVFoundation_FRAMEWORK AVFoundation)
+find_library(AudioToolbox_FRAMEWORK AudioToolbox)
+find_library(CoreMedia_FRAMEWORK CoreMedia)
+
 # Siv3Dが既に展開されているか確認
 set(SIV3D_ALREADY_EXTRACTED FALSE)
-if(EXISTS "${SIV3D_MAC_INCLUDE_DIR}/Siv3D.hpp" AND EXISTS "${SIV3D_MAC_LIB_DIR}/libSiv3D.a")
+if(EXISTS "${SIV3D_MAC_ROOT}/include/Siv3D.hpp" AND EXISTS "${SIV3D_MAC_ROOT}/lib/macOS/libSiv3D.a")
     set(SIV3D_ALREADY_EXTRACTED TRUE)
     message(STATUS "Siv3D already extracted at: ${SIV3D_MAC_ROOT}")
 endif()
@@ -99,15 +102,15 @@ if(NOT SIV3D_ALREADY_EXTRACTED)
     endif()
     
     # 展開結果の確認
-    if(NOT EXISTS "${SIV3D_MAC_INCLUDE_DIR}/Siv3D.hpp")
+    if(NOT EXISTS "${SIV3D_MAC_ROOT}/include/Siv3D.hpp")
         message(FATAL_ERROR
-            "Siv3D header files not found after extraction at: ${SIV3D_MAC_INCLUDE_DIR}"
+            "Siv3D header files not found after extraction at: ${SIV3D_MAC_ROOT}/include"
         )
     endif()
     
-    if(NOT EXISTS "${SIV3D_MAC_LIB_DIR}/libSiv3D.a")
+    if(NOT EXISTS "${SIV3D_MAC_ROOT}/lib/macOS/libSiv3D.a")
         message(FATAL_ERROR
-            "Siv3D library not found after extraction at: ${SIV3D_MAC_LIB_DIR}"
+            "Siv3D library not found after extraction at: ${SIV3D_MAC_ROOT}/lib/macOS"
         )
     endif()
     
@@ -115,62 +118,51 @@ if(NOT SIV3D_ALREADY_EXTRACTED)
 endif()
 
 # Siv3D::Siv3D ターゲットを作成（IMPORTED STATIC LIBRARY）
-if(NOT TARGET Siv3D::Siv3D)
-    add_library(Siv3D::Siv3D STATIC IMPORTED)
-    
-    # インクルードディレクトリを設定
-    set_target_properties(Siv3D::Siv3D PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES "${SIV3D_MAC_INCLUDE_DIR}"
-    )
-    
-    # メインライブラリのパスを設定
-    set_target_properties(Siv3D::Siv3D PROPERTIES
-        IMPORTED_LOCATION "${SIV3D_MAC_LIB_DIR}/libSiv3D.a"
-    )
-    
-    # Siv3Dの依存ライブラリをリンク
-    # 必要なフレームワークとライブラリを設定
-    target_link_libraries(Siv3D::Siv3D INTERFACE
-        "${SIV3D_MAC_LIB_DIR}/libSiv3D.a"
-        "${SIV3D_MAC_LIB_DIR}/boost/libboost_filesystem.a"
-        "${SIV3D_MAC_LIB_DIR}/freetype/libfreetype.a"
-        "${SIV3D_MAC_LIB_DIR}/harfbuzz/libharfbuzz.a"
-        "${SIV3D_MAC_LIB_DIR}/libgif/liblibgif.a"
-        "${SIV3D_MAC_LIB_DIR}/libjpeg-turbo/libturbojpeg.a"
-        "${SIV3D_MAC_LIB_DIR}/libogg/libogg.a"
-        "${SIV3D_MAC_LIB_DIR}/libpng/libpng16.a"
-        "${SIV3D_MAC_LIB_DIR}/libtiff/libtiff.a"
-        "${SIV3D_MAC_LIB_DIR}/libvorbis/libvorbis.a"
-        "${SIV3D_MAC_LIB_DIR}/libvorbis/libvorbisenc.a"
-        "${SIV3D_MAC_LIB_DIR}/libvorbis/libvorbisfile.a"
-        "${SIV3D_MAC_LIB_DIR}/libwebp/libwebp.a"
-        "${SIV3D_MAC_LIB_DIR}/opencv/libopencv_core.a"
-        "${SIV3D_MAC_LIB_DIR}/opencv/libopencv_imgcodecs.a"
-        "${SIV3D_MAC_LIB_DIR}/opencv/libopencv_imgproc.a"
-        "${SIV3D_MAC_LIB_DIR}/opencv/libopencv_objdetect.a"
-        "${SIV3D_MAC_LIB_DIR}/opencv/libopencv_photo.a"
-        "${SIV3D_MAC_LIB_DIR}/opencv/libopencv_videoio.a"
-        "${SIV3D_MAC_LIB_DIR}/opus/libopus.a"
-        "${SIV3D_MAC_LIB_DIR}/opus/libopusfile.a"
-        "${SIV3D_MAC_LIB_DIR}/zlib/libzlib.a"
-        "-framework" "Cocoa"
-        "-framework" "OpenGL"
-        "-framework" "Metal"
-        "-framework" "MetalKit"
-        "-framework" "QuartzCore"
-        "-framework" "AudioToolbox"
-        "-framework" "AVFoundation"
-        "-framework" "CoreAudio"
-        "-framework" "CoreVideo"
-        "-framework" "IOKit"
-        "-framework" "Carbon"
-        "-framework" "ForceFeedback"
-        "-framework" "GameController"
-        "-framework" "CoreHaptics"
-    )
+add_library(Siv3D::Siv3D STATIC IMPORTED)
+
+# インクルードディレクトリを設定
+set_target_properties(Siv3D::Siv3D PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${SIV3D_MAC_ROOT}/include;${SIV3D_MAC_ROOT}/include/ThirdParty"
+)
+
+# メインライブラリのパスを設定
+set_target_properties(Siv3D::Siv3D PROPERTIES
+    IMPORTED_LOCATION "${SIV3D_MAC_ROOT}/lib/macOS/libSiv3D.a"
+)
+
+# Siv3Dの依存ライブラリをリンク
+# 必要なフレームワークとライブラリを設定
+target_link_libraries(Siv3D::Siv3D INTERFACE
+    "${SIV3D_MAC_ROOT}/lib/macOS/libSiv3D.a"
+    "${SIV3D_MAC_ROOT}/lib/macOS/boost/libboost_filesystem.a"
+    "${SIV3D_MAC_ROOT}/lib/macOS/freetype/libfreetype.a"
+    "${SIV3D_MAC_ROOT}/lib/macOS/harfbuzz/libharfbuzz.a"
+    "${SIV3D_MAC_ROOT}/lib/macOS/libgif/liblibgif.a"
+    "${SIV3D_MAC_ROOT}/lib/macOS/libjpeg-turbo/libturbojpeg.a"
+    "${SIV3D_MAC_ROOT}/lib/macOS/libogg/libogg.a"
+    "${SIV3D_MAC_ROOT}/lib/macOS/libpng/libpng16.a"
+    "${SIV3D_MAC_ROOT}/lib/macOS/libtiff/libtiff.a"
+    "${SIV3D_MAC_ROOT}/lib/macOS/libvorbis/libvorbis.a"
+    "${SIV3D_MAC_ROOT}/lib/macOS/libvorbis/libvorbisenc.a"
+    "${SIV3D_MAC_ROOT}/lib/macOS/libvorbis/libvorbisfile.a"
+    "${SIV3D_MAC_ROOT}/lib/macOS/libwebp/libwebp.a"
+    "${SIV3D_MAC_ROOT}/lib/macOS/opencv/libopencv_core.a"
+    "${SIV3D_MAC_ROOT}/lib/macOS/opencv/libopencv_imgcodecs.a"
+    "${SIV3D_MAC_ROOT}/lib/macOS/opencv/libopencv_imgproc.a"
+    "${SIV3D_MAC_ROOT}/lib/macOS/opencv/libopencv_objdetect.a"
+    "${SIV3D_MAC_ROOT}/lib/macOS/opencv/libopencv_photo.a"
+    "${SIV3D_MAC_ROOT}/lib/macOS/opencv/libopencv_videoio.a"
+    "${SIV3D_MAC_ROOT}/lib/macOS/opus/libopus.a"
+    "${SIV3D_MAC_ROOT}/lib/macOS/opus/libopusfile.a"
+    "${SIV3D_MAC_ROOT}/lib/macOS/zlib/libzlib.a"
+    "-lcurl"
+    # macOSフレームワーク（OpenCVとSiv3Dのオーディオ処理で必要）
+    ${AVFoundation_FRAMEWORK}
+    ${AudioToolbox_FRAMEWORK}
+    ${CoreMedia_FRAMEWORK}
+)
 endif()
 
 message(STATUS "Found Siv3D (Mac): ${SIV3D_MAC_ROOT}")
-message(STATUS "  Include: ${SIV3D_MAC_INCLUDE_DIR}")
-message(STATUS "  Library: ${SIV3D_MAC_LIB_DIR}")
-
+message(STATUS "  Include: ${SIV3D_MAC_ROOT}/include")
+message(STATUS "  Library: ${SIV3D_MAC_ROOT}/lib/macOS")
