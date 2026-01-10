@@ -2,9 +2,6 @@ name: CI/CD
 
 on:
   push:
-    branches:
-      - main
-      - develop
   pull_request:
 
 env:
@@ -82,6 +79,54 @@ jobs:
           if-no-files-found: error
           retention-days: 1
       
+  macos-build:
+    permissions:
+      contents: read
+    runs-on: macos-15-intel
+    env:
+      # Use local (files) binary cache on macOS, persisted via actions/cache.
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.vcpkg/bincache
+      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/.vcpkg/bincache,readwrite
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Configure vcpkg environment
+        shell: bash
+        run: |
+          set -euxo pipefail
+          echo "VCPKG_ROOT=${VCPKG_INSTALLATION_ROOT}" >> "${GITHUB_ENV}"
+
+      - name: Cache vcpkg binary artifacts
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.vcpkg/bincache
+          key: vcpkg-bincache-${{ runner.os }}-x64-osx-${{ hashFiles('Siv3D_MessageBus/vcpkg.json') }}
+          restore-keys: |
+            vcpkg-bincache-${{ runner.os }}-x64-osx-
+
+      - name: Cache Siv3D SDK (macOS)
+        uses: actions/cache@v4
+        with:
+          path: Siv3D_MessageBus/cmake/siv3d_mac
+          key: siv3d-mac-0.6.16
+
+      - name: Install dependencies with vcpkg
+        working-directory: Siv3D_MessageBus
+        run: vcpkg install --triplet x64-osx
+
+      - name: Build Siv3D_MessageBus (Debug)
+        working-directory: Siv3D_MessageBus
+        run: python3 scripts/build.py Siv3D_MessageBus Debug
+
+      - name: Build Siv3D_MessageBus (Release)
+        working-directory: Siv3D_MessageBus
+        run: python3 scripts/build.py Siv3D_MessageBus Release
 
   linux-build-and-test:
     permissions:
