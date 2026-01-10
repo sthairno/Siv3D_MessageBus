@@ -10,3 +10,5 @@ cmake/siv3d_mac/
 *.aps
 
 AS_DEBUG/
+
+.DS_Store
