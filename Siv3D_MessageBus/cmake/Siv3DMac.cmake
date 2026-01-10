@@ -161,7 +161,6 @@ target_link_libraries(Siv3D::Siv3D INTERFACE
     ${AudioToolbox_FRAMEWORK}
     ${CoreMedia_FRAMEWORK}
 )
-endif()
 
 message(STATUS "Found Siv3D (Mac): ${SIV3D_MAC_ROOT}")
 message(STATUS "  Include: ${SIV3D_MAC_ROOT}/include")
