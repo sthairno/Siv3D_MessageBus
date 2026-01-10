@@ -45,8 +45,13 @@ def main() -> int:
             test_exe = project_root / "build" / "Test" / "debug" / "bin" / "Test.exe"
         else:
             test_exe = project_root / "build" / "Test" / "release" / "bin" / "Test.exe"
-    elif sys.platform.startswith("linux") or sys.platform == "darwin":
+    elif sys.platform.startswith("linux"):
         test_exe = project_root / "build" / configuration / "siv3d-messagebus-tests"
+    elif sys.platform == "darwin":
+        # macOSの場合、Xcodeジェネレータはマルチコンフィグなので
+        # build/Debug/Debug/ または build/Release/Release/ のような構造になる
+        app_bundle = project_root / "build" / configuration / configuration / "siv3d-messagebus-tests.app"
+        test_exe = app_bundle / "Contents" / "MacOS" / "siv3d-messagebus-tests"
     else:
         print(f"Error: Unsupported platform '{sys.platform}'.", file=sys.stderr)
         return 1

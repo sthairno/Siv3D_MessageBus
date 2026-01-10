@@ -20,29 +20,28 @@ if(NOT SIV3D_MESSAGEBUS_SOVERSION)
     set(SIV3D_MESSAGEBUS_SOVERSION "${SIV3D_MESSAGEBUS_VERSION}")
 endif()
 
+# hiredis
 find_package(Hiredis 1.1.0 REQUIRED)
 
-# Siv3Dの設定
+# Siv3D
 if(APPLE)
-    # macOSの場合: cmake/siv3d_mac に展開されたSiv3Dを使用
     include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/Siv3DMac.cmake")
-    get_target_property(SIV3D_INCLUDE_DIRS Siv3D::Siv3D INTERFACE_INCLUDE_DIRECTORIES)
 elseif(UNIX)
-    # Linuxの場合: find_packageを使用（将来の対応）
     find_package(Siv3D REQUIRED)
-    get_target_property(SIV3D_INCLUDE_DIRS Siv3D::Siv3D INTERFACE_INCLUDE_DIRECTORIES)
 endif()
+get_target_property(SIV3D_INCLUDE_DIRS Siv3D::Siv3D INTERFACE_INCLUDE_DIRECTORIES)
 
+# Tests
 if(SIV3D_MESSAGEBUS_BUILD_TESTS)
     find_package(GTest REQUIRED)
-    find_package(Boost REQUIRED COMPONENTS filesystem system process)
+    find_package(Boost REQUIRED COMPONENTS process)
 endif()
 
 ############################################################
 # Create a library
 ############################################################
 
-add_library(siv3d-messagebus SHARED
+add_library(siv3d-messagebus STATIC
     src/MessageBus.cpp
     src/ConnectNotAllowedError.cpp
     src/RedisConnection.cpp
@@ -58,10 +57,13 @@ target_include_directories(siv3d-messagebus
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/ThirdParty>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     PRIVATE
-        # Siv3Dは静的ライブラリしかないため、ヘッダーファイルの追加だけ行う
+        # Siv3Dは静的ライブラリしかないため、PUBLICにせずビルドに必要なヘッダーファイルの追加だけ行う
         ${SIV3D_INCLUDE_DIRS}
 )
-# Hiredisのリンク方法はプラットフォームによって異なる
+
+# 依存関係としてhiredisを追加
+# ライブラリの入手元がLinux→apt,Mac→vcpkgと異なり、
+# aptが"hiredis::hiredis"という書き方に対応していないためこうなっている
 if(APPLE)
     target_link_libraries(siv3d-messagebus
         PUBLIC
@@ -75,8 +77,6 @@ else()
 endif()
 
 set_target_properties(siv3d-messagebus PROPERTIES
-    VERSION "${SIV3D_MESSAGEBUS_VERSION}"
-    SOVERSION "${SIV3D_MESSAGEBUS_SOVERSION}"
     DEBUG_POSTFIX "d"
 )
 
@@ -90,8 +90,6 @@ install(
     TARGETS siv3d-messagebus
     EXPORT Siv3D_MessageBusTargets
     ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
     INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 
@@ -157,29 +155,50 @@ if(SIV3D_MESSAGEBUS_BUILD_TESTS)
             Siv3D::Siv3D
             siv3d-messagebus
             GTest::gtest
-            Boost::filesystem
-            Boost::system
             Boost::process
+            # Boost::filesystem は Siv3D::Siv3D に含まれているため、重複を避ける
     )
 
-    add_custom_command(
-        TARGET siv3d-messagebus-tests POST_BUILD
+    if(APPLE)
+        # MacOS
+
+        # Info.plistを設定してバンドルIDを提供
+        # Siv3DのFileSystem実装がbundleIdentifierを必要とするため
+        set_target_properties(siv3d-messagebus-tests PROPERTIES
+            MACOSX_BUNDLE ON
+            MACOSX_BUNDLE_INFO_PLIST "${PROJECT_SOURCE_DIR}/test/Info.plist"
+            MACOSX_BUNDLE_BUNDLE_NAME "siv3d-messagebus-tests"
+            MACOSX_BUNDLE_GUI_IDENTIFIER "com.siv3d.messagebus.tests"
+        )
+
+        # test/App/engine を Resources/engine として配置
+        file(GLOB_RECURSE ENGINE_RESOURCES "${PROJECT_SOURCE_DIR}/test/App/engine/*")
+        foreach(resource ${ENGINE_RESOURCES})
+            file(RELATIVE_PATH rel_path "${PROJECT_SOURCE_DIR}/test/App/engine" "${resource}")
+            get_filename_component(rel_dir "${rel_path}" DIRECTORY)
+            set_source_files_properties("${resource}" PROPERTIES
+                MACOSX_PACKAGE_LOCATION "Resources/engine/${rel_dir}"
+            )
+        endforeach()
+        target_sources(siv3d-messagebus-tests PRIVATE ${ENGINE_RESOURCES})
+    elseif(UNIX)
+        # Linux
+        
         # Siv3D の Resource() はモジュール隣の resources/ を参照するため、
         # build ディレクトリ内のバイナリから test/App/engine を指すリンクを張る
-        # （App 側の実体はそのまま、コピーは行わない）
-        COMMAND ${CMAKE_COMMAND} -E rm -rf $<TARGET_FILE_DIR:siv3d-messagebus-tests>/resources
-        COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:siv3d-messagebus-tests>/resources
-        COMMAND ${CMAKE_COMMAND} -E create_symlink
-                ${PROJECT_SOURCE_DIR}/test/App/engine
-                $<TARGET_FILE_DIR:siv3d-messagebus-tests>/resources/engine
-        COMMENT "Link Siv3D runtime resources next to the test binary"
-    )
+        add_custom_command(
+            TARGET siv3d-messagebus-tests POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E rm -rf $<TARGET_FILE_DIR:siv3d-messagebus-tests>/resources
+            COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:siv3d-messagebus-tests>/resources
+            COMMAND ${CMAKE_COMMAND} -E create_symlink
+                    ${PROJECT_SOURCE_DIR}/test/App/engine
+                    $<TARGET_FILE_DIR:siv3d-messagebus-tests>/resources/engine
+            COMMENT "Link Siv3D runtime resources next to the test binary"
+        )
+    endif()
 
     include(GoogleTest)
-    gtest_discover_tests(
-        siv3d-messagebus-tests
-        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/test/App
-    )
+    gtest_discover_tests(siv3d-messagebus-tests)
 endif()
 
 # Example usage from another CMake project:
