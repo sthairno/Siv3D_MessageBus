@@ -101,6 +101,7 @@ jobs:
         run: |
           set -euxo pipefail
           echo "VCPKG_ROOT=${VCPKG_INSTALLATION_ROOT}" >> "${GITHUB_ENV}"
+          mkdir -p "${GITHUB_WORKSPACE}/.vcpkg/bincache"
 
       - name: Cache vcpkg binary artifacts
         uses: actions/cache@v4
