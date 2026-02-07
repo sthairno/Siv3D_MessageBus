@@ -15,6 +15,7 @@ extern "C"
 #include <Siv3D/Stopwatch.hpp>
 #include <Siv3D/LicenseManager.hpp>
 #include <Siv3D/Array.hpp>
+#include <chrono>
 #include <string>
 #include <string_view>
 
@@ -25,6 +26,24 @@ namespace MessageBus::detail
 	constexpr int MAX_RECONNECT_INTERVAL_SEC = 60;
 	constexpr int MAX_RECONNECT_ATTEMPTS = 10;
 
+	namespace
+	{
+		timeval ToTimeval(const s3d::Duration& duration)
+		{
+			using namespace std::chrono;
+			const auto usec = duration_cast<microseconds>(duration).count();
+			if (usec <= 0)
+			{
+				return timeval{};
+			}
+			return timeval{
+				static_cast<long>(usec / 1000000),
+				static_cast<int>(usec % 1000000)
+			};
+		}
+
+	}
+
 	RedisConnection::RedisConnection(RedisConnectionOptions options)
 		: m_context(nullptr), m_ip(options.ip), m_port(options.port),
 		m_password(options.password
@@ -32,6 +51,7 @@ namespace MessageBus::detail
 					: Optional<String>{}),
 		m_reconnectTimer(Seconds{ 0 }, StartImmediately::No),
 		m_heartbeatInterval(options.heartbeatInterval),
+		m_connectTimeout(options.connectTimeout),
 		m_state(RedisConnectionState::Disconnected),
 		m_onConnect(options.onConnect), m_onReady(options.onReady),
 		m_onDisconnect(options.onDisconnect), m_onInvalidate(options.onInvalidate)
@@ -100,6 +120,11 @@ namespace MessageBus::detail
 		std::string ipStr = m_ip.narrow();
 		REDIS_OPTIONS_SET_TCP(&options, ipStr.c_str(), m_port);
 		options.async_push_cb = reinterpret_cast<redisAsyncPushFn*>(RedisConnection::onPushCallback);
+		if (m_connectTimeout > Seconds{ 0 })
+		{
+			const timeval connectTimeout = ToTimeval(m_connectTimeout);
+			options.connect_timeout = &connectTimeout;
+		}
 
 		m_context = redisAsyncConnectWithOptions(&options);
 		if (!m_context)

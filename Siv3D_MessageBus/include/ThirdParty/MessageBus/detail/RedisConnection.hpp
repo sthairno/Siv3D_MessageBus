@@ -25,6 +25,7 @@ namespace MessageBus::detail
 		s3d::uint16 port;
 		s3d::Optional<s3d::StringView> password = s3d::none;
 		s3d::Duration heartbeatInterval = s3d::Seconds{ 10 };
+		s3d::Duration connectTimeout = s3d::Seconds{ 10 };
 		std::function<void(redisAsyncContext*)> onConnect;
 		std::function<void(redisAsyncContext*)> onReady;
 		std::function<void()> onDisconnect;
@@ -59,6 +60,7 @@ namespace MessageBus::detail
 		s3d::uint16 m_port;
 		s3d::Optional<s3d::String> m_password;
 		s3d::Duration m_heartbeatInterval;
+		s3d::Duration m_connectTimeout;
 
 		// 接続状態
 		RedisConnectionState m_state;
