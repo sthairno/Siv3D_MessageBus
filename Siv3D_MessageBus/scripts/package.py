@@ -56,8 +56,9 @@ def _find_mac_messagebus_lib(project_root: Path, base_name: str) -> Path:
     raise PackagingError(f"Required resource not found: {base_name} (searched build/ and build/**/{base_name})")
 
 
-def _package_mac(project_root: Path, dest_root: Path, include_source: Path, readme_source: Path) -> None:
+def _package_mac(project_root: Path, dest_root: Path, include_source: Path) -> None:
     """Build Mac package layout (include + lib/macOS) for Siv3D SDK merge."""
+    readme_source = project_root / "MACOS_HOW_TO_INSTALL.md"
     # vcpkg (manifest) may live at project root or under build/Release when using Xcode
     vcpkg_root = project_root / "vcpkg_installed" / "x64-osx"
     if not (vcpkg_root / "lib" / "libhiredis.a").exists():
@@ -110,10 +111,9 @@ def _package_mac(project_root: Path, dest_root: Path, include_source: Path, read
     shutil.copy2(readme_source, readme_dest)
 
 
-def _package_windows(
-    project_root: Path, dest_root: Path, include_source: Path, readme_source: Path
-) -> None:
+def _package_windows(project_root: Path, dest_root: Path, include_source: Path) -> None:
     """Build Windows package layout (include + lib/Windows, Release only) and shortcut."""
+    readme_source = project_root / "WINDOWS_HOW_TO_INSTALL.md"
     message_bus_release_lib = project_root / "build" / "Siv3D_MessageBus" / "release" / "bin" / "siv3d-messagebus.lib"
     vcpkg_root = project_root / "vcpkg_installed" / "x64-windows-static" / "x64-windows-static"
     hiredis_release_lib = vcpkg_root / "lib" / "hiredis.lib"
@@ -171,10 +171,8 @@ def main() -> int:
     dest_root = project_root / "dest"
     include_source = project_root / "include" / "ThirdParty" / "MessageBus"
     if sys.platform == "darwin":
-        readme_source = project_root / "MACOS_HOW_TO_INSTALL.md"
         pack_fn = _package_mac
     elif sys.platform.startswith("win"):
-        readme_source = project_root / "WINDOWS_HOW_TO_INSTALL.md"
         pack_fn = _package_windows
     else:
         print("Error: Unsupported platform. Use this script on Windows or macOS (darwin).", file=sys.stderr)
@@ -184,7 +182,7 @@ def main() -> int:
         print(f"Cleaning destination directory: {dest_root}")
         shutil.rmtree(dest_root, ignore_errors=True)
 
-        pack_fn(project_root, dest_root, include_source, readme_source)
+        pack_fn(project_root, dest_root, include_source)
 
         print(f"Package layout prepared at: {dest_root}")
         return 0
