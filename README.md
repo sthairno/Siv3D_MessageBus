@@ -2,7 +2,8 @@
 
 ## 0. 導入方法
 
-Windowsは [HOW_TO_INSTALL.md](https://github.com/sthairno/Siv3D_MessageBus/blob/main/Siv3D_MessageBus/HOW_TO_INSTALL.md) を参照してください。
+- **Windows**: [WINDOWS_HOW_TO_INSTALL.md](https://github.com/sthairno/Siv3D_MessageBus/blob/main/Siv3D_MessageBus/WINDOWS_HOW_TO_INSTALL.md) を参照してください。
+- **macOS**: [MACOS_HOW_TO_INSTALL.md](https://github.com/sthairno/Siv3D_MessageBus/blob/main/Siv3D_MessageBus/MACOS_HOW_TO_INSTALL.md) を参照してください。
 
 ## 1. 基本
 サーバーへの接続や更新処理など、ライブラリの基本的な機能です。
