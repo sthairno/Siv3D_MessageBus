@@ -16,8 +16,9 @@ Siv3D_MessageBus は、Siv3Dアプリケーション間でメッセージをや�
 
 ### Step 1. OpenSiv3D SDK を用意する
 
-1. [OpenSiv3D SDK v0.6.16 (macOS)](https://siv3d.github.io/ja-jp/download/macos/) をダウンロードします
+1. [OpenSiv3D SDK v0.6.16 (macOS)](http://sthairno.github.io/Siv3D_MessageBus/Siv3D_MessageBus_macOS.zip) をダウンロードします
 2. ダウンロードした ZIP ファイルを展開し、中身を任意のフォルダに配置してください（例: `~/OpenSiv3D_SDK_v0.6.16`）
+3. [macOS で Siv3D プログラミングを始める](https://siv3d.github.io/ja-jp/download/macos/)に従い、Siv3Dプロジェクトの初期設定をしてください
 
 ### Step 2. Siv3D_MessageBus のライブラリをダウンロードする
 
@@ -50,12 +51,16 @@ Siv3D の Xcode プロジェクトテンプレートから作成したプロジ�
 2. 中央のペインで **TARGETS** の下にあるターゲット名を選択します
 3. 上部のタブから **Build Phases** を選択します
 4. **Link Binary With Libraries** セクションを展開し、左下の **+** ボタンをクリックします
+
+    ![Step 4](https://github.com/user-attachments/assets/e002c47c-a301-45ab-bcd5-f2835f085bfb)
+
 5. 表示されたダイアログの左下にある **Add Other...** → **Add Files...** をクリックします
+
+    ![Step 5](https://github.com/user-attachments/assets/b4286df0-c030-4036-bdf3-68fd740a49b3)
+
 6. Step 3 でコピーした SDK フォルダ内から、以下の2つのファイルを選択して追加します:
    - `lib/macOS/MessageBus/siv3d-messagebus.a`
    - `lib/macOS/hiredis/hiredis.a`
-
-<!-- TODO: Screenshot - Link Binary With Libraries にライブラリを追加した状態 -->
 
 ### Step 5. Redis サーバーをインストール・起動する
 
