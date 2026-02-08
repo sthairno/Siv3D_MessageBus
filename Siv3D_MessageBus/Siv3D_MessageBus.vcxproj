@@ -128,6 +128,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ThirdParty\MessageBus\ConnectNotAllowedError.hpp" />
+    <ClInclude Include="include\ThirdParty\MessageBus\InvalidNameError.hpp" />
     <ClInclude Include="include\ThirdParty\MessageBus\MessageBus.hpp" />
     <ClInclude Include="include\ThirdParty\MessageBus\RedisConnection.hpp" />
     <ClInclude Include="include\ThirdParty\MessageBus\GeneratedLicenses.hpp" />
@@ -139,6 +140,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\ConnectNotAllowedError.cpp" />
+    <ClCompile Include="src\InvalidNameError.cpp" />
     <ClCompile Include="src\MessageBus.cpp" />
     <ClCompile Include="src\RedisConnection.cpp" />
     <ClCompile Include="src\SharedVariable.cpp" />
