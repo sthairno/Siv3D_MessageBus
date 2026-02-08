@@ -263,25 +263,25 @@ TEST_F(MessageBusEvents, EmitBeforeConnectionReturnsFalse)
 	EXPECT_FALSE(bus.emit(U"early", UR"({ "a": 1 })"_json));
 }
 
-TEST_F(MessageBusEmptyConstructor, SubscribeEmptyChannelNameThrows)
+TEST_F(MessageBusEvents, SubscribeEmptyChannelNameThrows)
 {
 	MessageBus::MessageBus bus;
 	EXPECT_THROW(bus.subscribe(U""), MessageBus::InvalidNameError);
 }
 
-TEST_F(MessageBusEmptyConstructor, SubscribeSystemReservedChannelNameThrows)
+TEST_F(MessageBusEvents, SubscribeSystemReservedChannelNameThrows)
 {
 	MessageBus::MessageBus bus;
 	EXPECT_THROW(bus.subscribe(U"s3d-mbus:test"), MessageBus::InvalidNameError);
 }
 
-TEST_F(MessageBusEmptyConstructor, UnsubscribeEmptyChannelNameThrows)
+TEST_F(MessageBusEvents, UnsubscribeEmptyChannelNameThrows)
 {
 	MessageBus::MessageBus bus;
 	EXPECT_THROW(bus.unsubscribe(U""), MessageBus::InvalidNameError);
 }
 
-TEST_F(MessageBusEmptyConstructor, UnsubscribeSystemReservedChannelNameThrows)
+TEST_F(MessageBusEvents, UnsubscribeSystemReservedChannelNameThrows)
 {
 	MessageBus::MessageBus bus;
 	EXPECT_THROW(bus.unsubscribe(U"s3d-mbus:test"), MessageBus::InvalidNameError);
