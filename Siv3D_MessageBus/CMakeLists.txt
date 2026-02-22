@@ -21,7 +21,7 @@ if(NOT SIV3D_MESSAGEBUS_SOVERSION)
 endif()
 
 # hiredis
-find_package(Hiredis 1.1.0 REQUIRED)
+find_package(Hiredis 1.3.0 REQUIRED)
 
 # Siv3D
 if(APPLE)
@@ -62,9 +62,7 @@ target_include_directories(siv3d-messagebus
         ${SIV3D_INCLUDE_DIRS}
 )
 
-# 依存関係としてhiredisを追加
-# ライブラリの入手元がLinux→apt,Mac→vcpkgと異なり、
-# aptが"hiredis::hiredis"という書き方に対応していないためこうなっている
+# hiredis のリンク: Mac は別静的ライブラリとして公開、Linux は Siv3D_MessageBus に合体（マージ）
 if(APPLE)
     target_link_libraries(siv3d-messagebus
         PUBLIC
@@ -72,8 +70,8 @@ if(APPLE)
     )
 else()
     target_link_libraries(siv3d-messagebus
-        PUBLIC
-            ${HIREDIS_LIB_HIREDIS}
+        PRIVATE
+            hiredis::hiredis
     )
 endif()
 
