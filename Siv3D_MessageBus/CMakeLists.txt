@@ -21,7 +21,9 @@ if(NOT SIV3D_MESSAGEBUS_SOVERSION)
 endif()
 
 # hiredis
-find_package(Hiredis 1.3.0 REQUIRED)
+find_package(Hiredis REQUIRED)
+get_target_property(HIREDIS_INCLUDE_DIRS hiredis::hiredis INTERFACE_INCLUDE_DIRECTORIES)
+list(GET HIREDIS_INCLUDE_DIRS 0 HIREDIS_INCLUDE_DIR)
 
 # Siv3D
 if(APPLE)
@@ -62,22 +64,47 @@ target_include_directories(siv3d-messagebus
         ${SIV3D_INCLUDE_DIRS}
 )
 
-# hiredis のリンク: Mac は別静的ライブラリとして公開、Linux は Siv3D_MessageBus に合体（マージ）
-if(APPLE)
-    target_link_libraries(siv3d-messagebus
-        PUBLIC
-            hiredis::hiredis
-    )
-else()
-    target_link_libraries(siv3d-messagebus
-        PRIVATE
-            hiredis::hiredis
-    )
-endif()
+target_link_libraries(siv3d-messagebus
+    PRIVATE
+        hiredis::hiredis
+)
 
 set_target_properties(siv3d-messagebus PROPERTIES
     DEBUG_POSTFIX "d"
+    INTERFACE_LINK_LIBRARIES "" # target_link_librariesの設定を上書き
 )
+
+# Merge siv3d-messagebus + hiredis into libsiv3d-messagebus[d].a
+# See: https://stackoverflow.com/a/14200728
+if(UNIX)
+    if(APPLE)
+        add_custom_command(TARGET siv3d-messagebus POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E rm -f
+                    "$<TARGET_FILE_DIR:siv3d-messagebus>/libsiv3d-messagebus_merged${CMAKE_STATIC_LIBRARY_SUFFIX}"
+            COMMAND libtool -static -o
+                    "$<TARGET_FILE_DIR:siv3d-messagebus>/libsiv3d-messagebus_merged${CMAKE_STATIC_LIBRARY_SUFFIX}"
+                    "$<TARGET_FILE:siv3d-messagebus>"
+                    "$<TARGET_FILE:hiredis::hiredis>"
+            COMMAND ${CMAKE_COMMAND} -E rename
+                    "$<TARGET_FILE_DIR:siv3d-messagebus>/libsiv3d-messagebus_merged${CMAKE_STATIC_LIBRARY_SUFFIX}"
+                    "$<TARGET_FILE:siv3d-messagebus>"
+            COMMENT "Merge siv3d-messagebus + hiredis into libsiv3d-messagebus[d].a"
+            VERBATIM
+        )
+    else()
+        add_custom_command(TARGET siv3d-messagebus POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E rm -f
+                    "$<TARGET_FILE_DIR:siv3d-messagebus>/libsiv3d-messagebus_merged${CMAKE_STATIC_LIBRARY_SUFFIX}"
+            COMMAND /bin/sh -c
+                    "printf 'CREATE %s\\nADDLIB %s\\nADDLIB %s\\nSAVE\\nEND\\n' \"$<TARGET_FILE_DIR:siv3d-messagebus>/libsiv3d-messagebus_merged${CMAKE_STATIC_LIBRARY_SUFFIX}\" \"$<TARGET_FILE:siv3d-messagebus>\" \"$<TARGET_FILE:hiredis::hiredis>\" | \"${CMAKE_AR}\" -M"
+            COMMAND ${CMAKE_COMMAND} -E rename
+                    "$<TARGET_FILE_DIR:siv3d-messagebus>/libsiv3d-messagebus_merged${CMAKE_STATIC_LIBRARY_SUFFIX}"
+                    "$<TARGET_FILE:siv3d-messagebus>"
+            COMMENT "Merge siv3d-messagebus + hiredis into libsiv3d-messagebus[d].a"
+            VERBATIM
+        )
+    endif()
+endif()
 
 ############################################################
 # Install
@@ -101,6 +128,12 @@ export(
 install(
     DIRECTORY "${PROJECT_SOURCE_DIR}/include/ThirdParty/MessageBus/"
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/MessageBus"
+)
+
+# MessageBus の公開ヘッダが <hiredis/...> を参照するため、hiredis ヘッダも同梱する
+install(
+    DIRECTORY "${HIREDIS_INCLUDE_DIR}/hiredis"
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 
 install(
