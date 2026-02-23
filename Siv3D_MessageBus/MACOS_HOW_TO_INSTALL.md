@@ -58,9 +58,7 @@ Siv3D の Xcode プロジェクトテンプレートから作成したプロジ�
 
     ![Step 5](https://github.com/user-attachments/assets/b4286df0-c030-4036-bdf3-68fd740a49b3)
 
-6. Step 3 でコピーした SDK フォルダ内から、以下の2つのファイルを選択して追加します:
-   - `lib/macOS/MessageBus/siv3d-messagebus.a`
-   - `lib/macOS/hiredis/hiredis.a`
+6. Step 3 でコピーした SDK フォルダ内から、`lib/macOS/MessageBus/siv3d-messagebus.a`を選択して追加します
 
 ### Step 5. Redis サーバーをインストール・起動する
 

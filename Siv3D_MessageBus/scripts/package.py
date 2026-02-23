@@ -59,30 +59,22 @@ def _find_mac_messagebus_lib(project_root: Path, base_name: str) -> Path:
 def _package_mac(project_root: Path, dest_root: Path, include_source: Path) -> None:
     """Build Mac package layout (include + lib/macOS) for Siv3D SDK merge."""
     readme_source = project_root / "MACOS_HOW_TO_INSTALL.md"
-    # vcpkg (manifest) may live at project root or under build/Release when using Xcode
-    vcpkg_root = project_root / "vcpkg_installed" / "x64-osx"
-    if not (vcpkg_root / "lib" / "libhiredis.a").exists():
-        alt = project_root / "build" / "Release" / "vcpkg_installed" / "x64-osx"
-        if (alt / "lib" / "libhiredis.a").exists():
-            vcpkg_root = alt
+    vcpkg_root = project_root / "build" / "Release" / "vcpkg_installed" / "x64-osx"
     message_bus_release_lib = _find_mac_messagebus_lib(project_root, "libsiv3d-messagebus.a")
-    hiredis_release_lib = vcpkg_root / "lib" / "libhiredis.a"
     hiredis_license = vcpkg_root / "share" / "hiredis" / "copyright"
 
     include_dest = dest_root / "include" / "ThirdParty" / "MessageBus"
     message_bus_lib_dest = dest_root / "lib" / "macOS" / "MessageBus"
-    hiredis_lib_dest = dest_root / "lib" / "macOS" / "hiredis"
     readme_dest = dest_root / readme_source.name
 
     print("Validating required resources...")
     resolve_path(include_source, "MessageBus public headers")
     resolve_path(message_bus_release_lib, "libsiv3d-messagebus.a (Release)")
-    resolve_path(hiredis_release_lib, "libhiredis.a (Release)")
     resolve_path(hiredis_license, "hiredis license file")
     resolve_path(readme_source, readme_source.name)
 
     print("Creating directories...")
-    for directory in (include_dest, message_bus_lib_dest, hiredis_lib_dest):
+    for directory in (include_dest, message_bus_lib_dest):
         directory.mkdir(parents=True, exist_ok=True)
 
     print("Copying headers...")
@@ -101,11 +93,8 @@ def _package_mac(project_root: Path, dest_root: Path, include_source: Path) -> N
     print("Copying MessageBus libraries...")
     shutil.copy2(message_bus_release_lib, message_bus_lib_dest / "siv3d-messagebus.a")
 
-    print("Copying hiredis libraries...")
-    shutil.copy2(hiredis_release_lib, hiredis_lib_dest / "hiredis.a")
-
     print("Placing hiredis license...")
-    shutil.copy2(hiredis_license, hiredis_lib_dest / "LICENSE_hiredis.txt")
+    shutil.copy2(hiredis_license, message_bus_lib_dest / "LICENSE_hiredis.txt")
 
     print(f"Copying {readme_source.name}...")
     shutil.copy2(readme_source, readme_dest)
