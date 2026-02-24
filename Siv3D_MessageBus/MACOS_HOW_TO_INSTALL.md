@@ -35,7 +35,7 @@ Siv3D_MessageBus は、Siv3Dアプリケーション間でメッセージをや�
 
 展開した Siv3D_MessageBus の **`include`** フォルダと **`lib`** フォルダを、OpenSiv3D SDK のフォルダへそのままコピーします。
 
-https://github.com/user-attachments/assets/9e498df3-a8f0-416f-94f6-cc928139da3c
+https://github.com/user-attachments/assets/550f7925-c533-4bbd-981f-57846f7a277d
 
 ### Step 4. Xcode プロジェクトを設定する
 
