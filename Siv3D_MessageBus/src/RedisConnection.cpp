@@ -1,4 +1,4 @@
-﻿#include "MessageBus/detail/RedisConnection.hpp"
+#include "MessageBus/detail/RedisConnection.hpp"
 #include "MessageBus/detail/GeneratedLicenses.hpp"
 
 extern "C"
@@ -73,6 +73,7 @@ namespace MessageBus::detail
 		{
 			redisAsyncFree(m_context);
 			m_context = nullptr;
+			m_state = RedisConnectionState::Disconnected;
 		}
 	}
 
@@ -130,6 +131,7 @@ namespace MessageBus::detail
 		if (!m_context)
 		{
 			failure(U"Initialization Error: Failed to initialize Redis client", false);
+			setState(RedisConnectionState::Disconnected);
 			return;
 		}
 
@@ -140,6 +142,7 @@ namespace MessageBus::detail
 				false);
 			redisAsyncFree(m_context);
 			m_context = nullptr;
+			setState(RedisConnectionState::Disconnected);
 			return;
 		}
 
@@ -153,14 +156,13 @@ namespace MessageBus::detail
 			failure(U"Initialization Error: Failed to attach poll adapter", false);
 			redisAsyncFree(m_context);
 			m_context = nullptr;
+			setState(RedisConnectionState::Disconnected);
 			return;
 		}
 
 		// コールバック登録
 		redisAsyncSetConnectCallbackNC(m_context, onConnectCallback);
 		redisAsyncSetDisconnectCallback(m_context, onDisconnectCallback);
-
-		setState(RedisConnectionState::Connecting);
 	}
 
 	void RedisConnection::setState(RedisConnectionState newState)

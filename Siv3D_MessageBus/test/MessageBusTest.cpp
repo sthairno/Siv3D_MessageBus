@@ -341,6 +341,32 @@ TEST_F(MessageBusEvents, ShutdownWhenConnecting)
 	EXPECT_FALSE(bus.isDisconnecting());
 }
 
+TEST(MessageBusShutdownRegression, ShutdownWhenErrorOccurs)
+{
+	// NOTE:
+	// RedisConnection::tryConnect() が初期化エラー（m_context->err）で return する経路で
+	// state が Disconnected に戻らない場合、MessageBus::shutdown() 相当の待機ループが永久に抜けられない。
+
+	// 無効なホストを指定して、redisAsyncConnectWithOptions() が直ちに m_context->err を返す状況を作る
+	MessageBus::detail::RedisConnection conn{
+		MessageBus::detail::RedisConnectionOptions{
+			.ip = U"256.256.256.256",
+			.port = 6379,
+			.password = none,
+			.onConnect = nullptr,
+			.onReady = nullptr,
+			.onDisconnect = nullptr,
+			.onInvalidate = nullptr,
+		}
+	};
+
+	ASSERT_TRUE(conn.isFailed()) << "Expected initialization failure to reproduce the freeze condition";
+
+	// shutdown() は Disconnected になるまで待機するため、ここで Disconnected に遷移できないと永久ループになり得る
+	conn.disconnect();
+	EXPECT_TRUE(WaitForState(conn, MessageBus::detail::RedisConnectionState::Disconnected, 200ms));
+}
+
 // ============================================================================
 // MessageBus 空コンストラクタテスト
 // ============================================================================
