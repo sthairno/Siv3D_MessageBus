@@ -29,7 +29,7 @@ namespace MessageBus
 	Type SharedVariable<Type>::get() const
 	{
 		const auto& jsonValue = m_impl->valueAsJSON();
-		const auto optValue = jsonValue.getOpt<Type>();
+		const auto optValue = jsonValue.template getOpt<Type>();
 
 		if (not optValue.has_value())
 		{

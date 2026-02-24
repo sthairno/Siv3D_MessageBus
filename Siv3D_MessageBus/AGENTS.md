@@ -46,6 +46,7 @@ extern "C" {
 - CMake 3.24+, Ninja (or Make), and Python 3.9+ available on PATH
 - `VCPKG_ROOT` configured so CMake can locate the vcpkg toolchain file
 - Siv3D SDK installed under `/usr/local` (environment variables such as `SIV3D_0_6_16` are not required)
+- hiredis is supplied by vcpkg (manifest); do not use system apt-installed hiredis
 
 ## Testing instructions
 

@@ -1,4 +1,4 @@
-﻿#include "MessageBus/detail/RedisConnection.hpp"
+#include "MessageBus/detail/RedisConnection.hpp"
 #include "MessageBus/detail/GeneratedLicenses.hpp"
 
 extern "C"
@@ -15,6 +15,7 @@ extern "C"
 #include <Siv3D/Stopwatch.hpp>
 #include <Siv3D/LicenseManager.hpp>
 #include <Siv3D/Array.hpp>
+#include <chrono>
 #include <string>
 #include <string_view>
 
@@ -25,6 +26,24 @@ namespace MessageBus::detail
 	constexpr int MAX_RECONNECT_INTERVAL_SEC = 60;
 	constexpr int MAX_RECONNECT_ATTEMPTS = 10;
 
+	namespace
+	{
+		timeval ToTimeval(const s3d::Duration& duration)
+		{
+			using namespace std::chrono;
+			const auto usec = duration_cast<microseconds>(duration).count();
+			if (usec <= 0)
+			{
+				return timeval{};
+			}
+			return timeval{
+				static_cast<long>(usec / 1000000),
+				static_cast<int>(usec % 1000000)
+			};
+		}
+
+	}
+
 	RedisConnection::RedisConnection(RedisConnectionOptions options)
 		: m_context(nullptr), m_ip(options.ip), m_port(options.port),
 		m_password(options.password
@@ -32,6 +51,7 @@ namespace MessageBus::detail
 					: Optional<String>{}),
 		m_reconnectTimer(Seconds{ 0 }, StartImmediately::No),
 		m_heartbeatInterval(options.heartbeatInterval),
+		m_connectTimeout(options.connectTimeout),
 		m_state(RedisConnectionState::Disconnected),
 		m_onConnect(options.onConnect), m_onReady(options.onReady),
 		m_onDisconnect(options.onDisconnect), m_onInvalidate(options.onInvalidate)
@@ -53,6 +73,7 @@ namespace MessageBus::detail
 		{
 			redisAsyncFree(m_context);
 			m_context = nullptr;
+			m_state = RedisConnectionState::Disconnected;
 		}
 	}
 
@@ -63,12 +84,10 @@ namespace MessageBus::detail
 			redisPollTick(m_context, 0.0);
 		}
 
-		if (m_state == RedisConnectionState::Disconnected ||
-			m_state == RedisConnectionState::Failed)
+		if (m_state == RedisConnectionState::Disconnected)
 		{
 			// 再接続処理
-			if (m_isReconnecting && !m_isDisconnecting &&
-				m_reconnectTimer.reachedZero())
+			if (m_isReconnecting && m_reconnectTimer.reachedZero())
 			{
 				tryConnect();
 			}
@@ -92,6 +111,7 @@ namespace MessageBus::detail
 
 	void RedisConnection::tryConnect()
 	{
+		m_isFailed = false;
 		setState(RedisConnectionState::Connecting);
 
 		Logger << U"[Redis][INFO] ip=" << m_ip << U", port=" << m_port;
@@ -101,11 +121,17 @@ namespace MessageBus::detail
 		std::string ipStr = m_ip.narrow();
 		REDIS_OPTIONS_SET_TCP(&options, ipStr.c_str(), m_port);
 		options.async_push_cb = reinterpret_cast<redisAsyncPushFn*>(RedisConnection::onPushCallback);
+		if (m_connectTimeout > Seconds{ 0 })
+		{
+			const timeval connectTimeout = ToTimeval(m_connectTimeout);
+			options.connect_timeout = &connectTimeout;
+		}
 
 		m_context = redisAsyncConnectWithOptions(&options);
 		if (!m_context)
 		{
 			failure(U"Initialization Error: Failed to initialize Redis client", false);
+			setState(RedisConnectionState::Disconnected);
 			return;
 		}
 
@@ -116,6 +142,7 @@ namespace MessageBus::detail
 				false);
 			redisAsyncFree(m_context);
 			m_context = nullptr;
+			setState(RedisConnectionState::Disconnected);
 			return;
 		}
 
@@ -129,14 +156,13 @@ namespace MessageBus::detail
 			failure(U"Initialization Error: Failed to attach poll adapter", false);
 			redisAsyncFree(m_context);
 			m_context = nullptr;
+			setState(RedisConnectionState::Disconnected);
 			return;
 		}
 
 		// コールバック登録
 		redisAsyncSetConnectCallbackNC(m_context, onConnectCallback);
 		redisAsyncSetDisconnectCallback(m_context, onDisconnectCallback);
-
-		setState(RedisConnectionState::Connecting);
 	}
 
 	void RedisConnection::setState(RedisConnectionState newState)
@@ -152,7 +178,7 @@ namespace MessageBus::detail
 	{
 		Logger << U"[Redis][ERROR] " << message;
 		m_error = message;
-		setState(RedisConnectionState::Failed);
+		m_isFailed = true;
 
 		if (!reconnect)
 		{
@@ -192,8 +218,31 @@ namespace MessageBus::detail
 		{
 			return;
 		}
-		m_isDisconnecting = true;
-		redisAsyncDisconnect(m_context);
+
+		// 既に切断済み or 切断中なら無視
+		if (m_state == RedisConnectionState::Disconnected ||
+			m_state == RedisConnectionState::Disconnecting)
+		{
+			return;
+		}
+
+		if (m_state == RedisConnectionState::Connected)
+		{
+			// 接続確立済みの場合は正常に切断
+
+			setState(RedisConnectionState::Disconnecting);
+			redisAsyncDisconnect(m_context); // NOTE: Sometimes this function will call onDisconnectCallback immediately
+		}
+		else
+		{
+			// ハンドシェイク中（Connecting, HelloSent, AuthSent, ClientTrackingSent）は
+			// 応答待ちのリクエストを無視して直ちにソケットを閉じる
+			// （Disconnecting → レスポンス処理 → AuthSent のような遷移を防ぐ）
+
+			redisAsyncFree(m_context);
+			m_context = nullptr;
+			setState(RedisConnectionState::Disconnected);
+		}
 	}
 
 	// コールバック実装
@@ -222,6 +271,8 @@ namespace MessageBus::detail
 		else
 		{
 			self->failure(U"Connection Error: {}"_fmt(Unicode::FromUTF8(ac->errstr)), true);
+			// 接続失敗時は disconnect callback が呼ばれないため、ここで Disconnected に遷移
+			self->setState(RedisConnectionState::Disconnected);
 			self->m_context = nullptr;
 		}
 	}
@@ -230,16 +281,22 @@ namespace MessageBus::detail
 	{
 		RedisConnection* self = static_cast<RedisConnection*>(ac->data);
 
+		// 既にエラー処理済み（isFailed==true で requestDisconnect() 経由）の場合は
+		// 追加のエラー処理はスキップ
 		bool disconnectedByError =
-			self->m_state == RedisConnectionState::Failed && status == REDIS_OK;
+			self->m_isFailed && self->m_state == RedisConnectionState::Disconnecting && status == REDIS_OK;
 
-		if (!disconnectedByError)
+		self->setState(RedisConnectionState::Disconnected);
+
+		if (not disconnectedByError)
 		{
 			switch (status)
 			{
 			case REDIS_OK: {
-				self->setState(RedisConnectionState::Disconnected);
-				self->m_error = U"";
+				if (not self->m_isFailed)
+				{
+					self->m_error = U"";
+				}
 				break;
 			}
 			case REDIS_ERR_PROTOCOL:
@@ -259,7 +316,6 @@ namespace MessageBus::detail
 		if (self->m_onDisconnect)
 			self->m_onDisconnect();
 
-		self->m_isDisconnecting = false;
 		self->m_context = nullptr;
 	}
 

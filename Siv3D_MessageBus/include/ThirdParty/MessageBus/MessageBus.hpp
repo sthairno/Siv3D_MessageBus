@@ -3,6 +3,7 @@
 #include "WindowsLibrary.hpp"
 #include "SharedVariable.hpp"
 #include "ConnectNotAllowedError.hpp"
+#include "InvalidNameError.hpp"
 #include <memory>
 
 #include <Siv3D/StringView.hpp>
@@ -46,6 +47,11 @@ namespace MessageBus
 		[[nodiscard]]
 		bool isConnected() const;
 
+		/// @brief 切断中かどうかを取得します
+		/// @return 切断中の場合 true
+		[[nodiscard]]
+		bool isDisconnecting() const;
+
 		/// @brief 接続状態を取得します
 		/// @return 接続済みの場合 true
 		[[nodiscard]]
@@ -67,15 +73,18 @@ namespace MessageBus
 		};
 
 		/// @brief チャンネルを購読します
+		/// @throws InvalidNameError 使用不能なチャンネル名の場合
 		bool subscribe(s3d::StringView channel);
 
 		/// @brief チャンネルの購読を解除します
+		/// @throws InvalidNameError 使用不能なチャンネル名の場合
 		bool unsubscribe(s3d::StringView channel);
 
 		/// @brief イベントを送信します
 		/// @param channel 送信先チャンネル名
 		/// @param payload イベントに含めるJSON
 		/// @return イベント送信が成功した場合 true
+		/// @throws InvalidNameError 使用不能なチャンネル名の場合
 		bool emit(s3d::StringView channel, s3d::Optional<s3d::JSON> payload = s3d::none);
 
 		/// @brief 受信済みイベント
@@ -91,6 +100,7 @@ namespace MessageBus
 		/// @param name 変数名
 		/// @param defaultValue 初期値（キーが存在しない場合に使用）
 		/// @return 共有変数のインスタンス
+		/// @throws InvalidNameError 使用不能な変数名の場合
 		template<class Type>
 		SharedVariable<Type> variable(s3d::StringView name, const Type& defaultValue);
 

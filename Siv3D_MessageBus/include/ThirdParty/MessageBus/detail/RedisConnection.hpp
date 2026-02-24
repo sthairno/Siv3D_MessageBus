@@ -25,6 +25,7 @@ namespace MessageBus::detail
 		s3d::uint16 port;
 		s3d::Optional<s3d::StringView> password = s3d::none;
 		s3d::Duration heartbeatInterval = s3d::Seconds{ 10 };
+		s3d::Duration connectTimeout = s3d::Seconds{ 10 };
 		std::function<void(redisAsyncContext*)> onConnect;
 		std::function<void(redisAsyncContext*)> onReady;
 		std::function<void()> onDisconnect;
@@ -44,7 +45,7 @@ namespace MessageBus::detail
 		s3d::Optional<s3d::String> password() const noexcept { return m_password; }
 		RedisConnectionState state() const noexcept { return m_state; }
 		const s3d::String& error() const noexcept { return m_error; }
-		bool isDisconnecting() const noexcept { return m_isDisconnecting; }
+		bool isFailed() const noexcept { return m_isFailed; }
 		bool isReconnecting() const noexcept { return m_isReconnecting; }
 		redisAsyncContext* context() const noexcept { return m_context; }
 
@@ -59,13 +60,14 @@ namespace MessageBus::detail
 		s3d::uint16 m_port;
 		s3d::Optional<s3d::String> m_password;
 		s3d::Duration m_heartbeatInterval;
+		s3d::Duration m_connectTimeout;
 
 		// 接続状態
 		RedisConnectionState m_state;
 		s3d::String m_error;
 		s3d::Timer m_reconnectTimer;
 		int m_reconnectAttempts = 0;
-		bool m_isDisconnecting = false;
+		bool m_isFailed = false;
 		bool m_isReconnecting = false;
 
 		// ハートビート監視

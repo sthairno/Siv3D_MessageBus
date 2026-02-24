@@ -12,7 +12,8 @@ static bool WaitForConnection(MessageBus::detail::RedisConnection& conn, Duratio
 	{
 		conn.tick();
 		if (conn.state() == MessageBus::detail::RedisConnectionState::Connected) return true;
-		if (conn.state() == MessageBus::detail::RedisConnectionState::Failed) return false;
+		// 失敗かつ再接続予定なしの場合は早期終了
+		if (conn.isFailed() && !conn.isReconnecting()) return false;
 		System::Sleep(TICK_INTERVAL);
 	}
 	return false;

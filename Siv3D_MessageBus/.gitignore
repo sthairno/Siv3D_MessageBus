@@ -3,9 +3,12 @@ build/
 dest/
 .reference/
 .plan/
+cmake/siv3d_mac/
 .venv/
 
 *.user
 *.aps
 
 AS_DEBUG/
+
+.DS_Store

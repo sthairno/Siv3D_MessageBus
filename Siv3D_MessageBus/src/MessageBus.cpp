@@ -1,11 +1,13 @@
 #include "MessageBus/MessageBus.hpp"
 #include "MessageBus/ConnectNotAllowedError.hpp"
+#include "MessageBus/InvalidNameError.hpp"
 #include "MessageBus/detail/RedisConnection.hpp"
 #include "MessageBus/SharedVariable.hpp"
 #include "MessageBus/detail/SharedVariableImpl.hpp"
 #include <Siv3D/Logger.hpp>
 #include <Siv3D/Unicode.hpp>
 #include <Siv3D/HashTable.hpp>
+#include <Siv3D/FormatLiteral.hpp>
 #include <memory>
 #include <thread>
 
@@ -17,9 +19,20 @@ using namespace s3d;
 
 namespace MessageBus
 {
+	static StringView SystemKeyPrefix = U"s3d-mbus:";
+
+	static bool ValidateVariableName(StringView name)
+	{
+		return 
+			not name.empty() && 
+			not name.starts_with(SystemKeyPrefix);
+	}
+
 	static bool ValidateChannelName(StringView channel)
 	{
-		return not channel.empty();
+		return
+			not channel.empty() && 
+			not channel.starts_with(SystemKeyPrefix);
 	}
 
 	struct MessageBus::Impl
@@ -55,7 +68,7 @@ namespace MessageBus
 				.heartbeatInterval = s3d::Seconds{ 10 },
 				.onConnect = nullptr,
 				.onReady = [this](redisAsyncContext* context) {
-					reconcileSubscriptions(context);
+					syncSubscriptions(context);
 					syncVariables(context);
 				},
 				.onDisconnect = [this]() {
@@ -126,7 +139,7 @@ namespace MessageBus
 			channelsDirty = true;
 		}
 
-		void reconcileSubscriptions(redisAsyncContext* context)
+		void syncSubscriptions(redisAsyncContext* context)
 		{
 			if (!context) return;
 
@@ -220,8 +233,7 @@ namespace MessageBus
 				return false;
 			}
 
-			if (not ValidateChannelName(channel) ||
-				conn->state() != detail::RedisConnectionState::Connected)
+			if (conn->state() != detail::RedisConnectionState::Connected)
 			{
 				return false;
 			}
@@ -254,8 +266,6 @@ namespace MessageBus
 
 		bool subscribe(StringView channel)
 		{
-			if (not ValidateChannelName(channel)) return false;
-
 			// 購読している→成功
 			// 購読していない→成功
 
@@ -283,8 +293,6 @@ namespace MessageBus
 
 		bool unsubscribe(StringView channel)
 		{
-			if (not ValidateChannelName(channel)) return false;
-
 			// 購読している→成功
 			// 購読していない→失敗
 
@@ -330,10 +338,12 @@ namespace MessageBus
 
 	void MessageBus::disconnect()
 	{
-		if (m_impl->conn)
+		if (!m_impl->conn)
 		{
-			m_impl->conn->disconnect();
+			return;
 		}
+
+		m_impl->conn->disconnect();
 	}
 
 	void MessageBus::shutdown()
@@ -343,13 +353,14 @@ namespace MessageBus
 			return;
 		}
 
-		if (m_impl->conn->state() == detail::RedisConnectionState::Connected &&
-			not m_impl->conn->isDisconnecting())
+		auto state = m_impl->conn->state();
+		if (state != detail::RedisConnectionState::Disconnected &&
+			state != detail::RedisConnectionState::Disconnecting)
 		{
-			m_impl->conn->disconnect();
+			disconnect();
 		}
 
-		while (m_impl->conn->state() == detail::RedisConnectionState::Connected)
+		while (m_impl->conn->state() != detail::RedisConnectionState::Disconnected)
 		{
 			std::this_thread::yield();
 			m_impl->conn->tick();
@@ -370,7 +381,7 @@ namespace MessageBus
 		{
 			if (m_impl->channelsDirty)
 			{
-				m_impl->reconcileSubscriptions(m_impl->conn->context());
+				m_impl->syncSubscriptions(m_impl->conn->context());
 			}
 			m_impl->syncVariables(m_impl->conn->context());
 		}
@@ -387,6 +398,15 @@ namespace MessageBus
 		return m_impl->conn->state() == detail::RedisConnectionState::Connected;
 	}
 
+	bool MessageBus::isDisconnecting() const
+	{
+		if (!m_impl->conn)
+		{
+			return false;
+		}
+		return m_impl->conn->state() == detail::RedisConnectionState::Disconnecting;
+	}
+
 	const s3d::String& MessageBus::error() const
 	{
 		if (!m_impl->conn)
@@ -399,11 +419,23 @@ namespace MessageBus
 
 	bool MessageBus::subscribe(s3d::StringView channel)
 	{
+		if (not ValidateChannelName(channel))
+		{
+			Logger << U"[MessageBus][ERROR] Invalid channel name: \"" << channel << U"\"";
+			throw InvalidNameError(UR"(Invalid channel name: "{0}")"_fmt(channel));
+		}
+
 		return m_impl->subscribe(channel);
 	}
 
 	bool MessageBus::unsubscribe(s3d::StringView channel)
 	{
+		if (not ValidateChannelName(channel))
+		{
+			Logger << U"[MessageBus][ERROR] Invalid channel name: \"" << channel << U"\"";
+			throw InvalidNameError(UR"(Invalid channel name: "{0}")"_fmt(channel));
+		}
+
 		return m_impl->unsubscribe(channel);
 	}
 
@@ -414,16 +446,22 @@ namespace MessageBus
 
 	bool MessageBus::emit(s3d::StringView channel, s3d::Optional<s3d::JSON> payload)
 	{
+		if (not ValidateChannelName(channel))
+		{
+			Logger << U"[MessageBus][ERROR] Invalid channel name: \"" << channel << U"\"";
+			throw InvalidNameError(UR"(Invalid channel name: "{0}")"_fmt(channel));
+		}
+
 		return m_impl->emit(channel, payload);
 	}
 
 	template<class Type>
 	SharedVariable<Type> MessageBus::variable(s3d::StringView name, const Type& defaultValue)
 	{
-		if (name.empty())
+		if (not ValidateVariableName(name))
 		{
-			Logger << U"[MessageBus][ERROR] variable name cannot be empty";
-			throw std::invalid_argument("variable name cannot be empty");
+			Logger << U"[MessageBus][ERROR] Invalid variable name: \"" << name << U"\"";
+			throw InvalidNameError(UR"(Invalid variable name: "{0}")"_fmt(name));
 		}
 
 		const std::string u8name = Unicode::ToUTF8(name);
