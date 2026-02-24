@@ -1,4 +1,4 @@
-﻿#include "RedisDockerTestFixture.hpp"
+#include "RedisDockerTestFixture.hpp"
 #include <MessageBus/MessageBus.hpp>
 #include "Utility.hpp"
 
@@ -320,11 +320,7 @@ TEST_F(MessageBusEvents, ShutdownWhenDisconnecting)
 	// Disconnecting状態を作るため送信中の処理を追加しておく
 	bus.variable<int32>(U"dummy", 0);
 
-	// Subscribeがあるとdisconnectingにならない問題がある
-	// https://github.com/redis/hiredis/issues/1320
-	// TODO: 問題が解決したらコメントアウト解除
-	//
-	// bus.subscribe(U"test");
+	bus.subscribe(U"test");
 	
 	bus.update();
 
