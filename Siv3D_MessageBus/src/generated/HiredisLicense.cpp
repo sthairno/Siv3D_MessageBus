@@ -5,11 +5,11 @@ namespace MessageBus::Generated
 {
 	static const s3d::LicenseInfo license = {
 		U"hiredis",
-		UR"HIREDISCOPY(Copyright (c) 2009-2011, Salvatore Sanfilippo <antirez at gmail dot com>
+		UR"LICENSE_COPY(Copyright (c) 2009-2011, Salvatore Sanfilippo <antirez at gmail dot com>
 Copyright (c) 2010-2011, Pieter Noordhuis <pcnoordhuis at gmail dot com>
 
-All rights reserved.)HIREDISCOPY",
-		UR"HIREDISTEXT(Redistribution and use in source and binary forms, with or without
+All rights reserved.)LICENSE_COPY",
+		UR"LICENSE_TEXT(Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
 
 * Redistributions of source code must retain the above copyright notice,
@@ -32,7 +32,7 @@ ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
 LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
 ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.)HIREDISTEXT"
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.)LICENSE_TEXT"
 	};
 
 	const s3d::LicenseInfo& HiredisLicense()
