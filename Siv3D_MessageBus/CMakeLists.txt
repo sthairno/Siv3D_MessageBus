@@ -47,6 +47,7 @@ add_library(siv3d-messagebus STATIC
     src/MessageBus.cpp
     src/ConnectNotAllowedError.cpp
     src/InvalidNameError.cpp
+    src/PlayerList.cpp
     src/RedisConnection.cpp
     src/SharedVariable.cpp
     src/SharedVariableImpl.cpp
@@ -172,6 +173,7 @@ if(SIV3D_MESSAGEBUS_BUILD_TESTS)
     add_executable(siv3d-messagebus-tests
         test/Main.cpp
         test/MessageBusTest.cpp
+        test/PlayerListTest.cpp
         test/RedisConnectionPushTest.cpp
         test/RedisConnectionTest.cpp
         test/SharedVariableTest.cpp
