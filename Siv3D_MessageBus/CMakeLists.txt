@@ -51,7 +51,6 @@ add_library(siv3d-messagebus STATIC
     src/RedisConnection.cpp
     src/SharedVariable.cpp
     src/SharedVariableImpl.cpp
-    src/generated/HiredisLicense.cpp
     src/TypeMismatchError.cpp
 )
 add_library(siv3d-messagebus::siv3d-messagebus ALIAS siv3d-messagebus)
@@ -73,6 +72,46 @@ target_link_libraries(siv3d-messagebus
 set_target_properties(siv3d-messagebus PROPERTIES
     DEBUG_POSTFIX "d"
     INTERFACE_LINK_LIBRARIES "" # target_link_librariesの設定を上書き
+)
+
+# Third-party license C++ sources are generated before compilation.
+set(_GENERATED_LICENSE_DIR "${PROJECT_SOURCE_DIR}/src/generated")
+set(_HIREDIS_LICENSE_CPP "${_GENERATED_LICENSE_DIR}/HiredisLicense.cpp")
+set(_SQIDSCPP_LICENSE_CPP "${_GENERATED_LICENSE_DIR}/SqidsCppLicense.cpp")
+
+add_custom_command(
+    OUTPUT "${_HIREDIS_LICENSE_CPP}"
+    COMMAND "${CMAKE_COMMAND}"
+        -DINPUT_PATH="${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/hiredis/copyright"
+        -DOUTPUT_PATH="${_HIREDIS_LICENSE_CPP}"
+        -DTITLE="hiredis"
+        -DFUNCTION_NAME="HiredisLicense"
+        -DFORMAT="bsd3"
+        -P "${PROJECT_SOURCE_DIR}/cmake/GenerateLicenseCpp.cmake"
+    DEPENDS
+        "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/hiredis/copyright"
+        "${PROJECT_SOURCE_DIR}/cmake/GenerateLicenseCpp.cmake"
+    VERBATIM
+)
+
+add_custom_command(
+    OUTPUT "${_SQIDSCPP_LICENSE_CPP}"
+    COMMAND "${CMAKE_COMMAND}"
+        -DINPUT_PATH="${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/sqids-cpp/copyright"
+        -DOUTPUT_PATH="${_SQIDSCPP_LICENSE_CPP}"
+        -DTITLE="sqids-cpp"
+        -DFUNCTION_NAME="SqidsCppLicense"
+        -DFORMAT="mit"
+        -P "${PROJECT_SOURCE_DIR}/cmake/GenerateLicenseCpp.cmake"
+    DEPENDS
+        "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/sqids-cpp/copyright"
+        "${PROJECT_SOURCE_DIR}/cmake/GenerateLicenseCpp.cmake"
+    VERBATIM
+)
+
+target_sources(siv3d-messagebus PRIVATE
+    "${_HIREDIS_LICENSE_CPP}"
+    "${_SQIDSCPP_LICENSE_CPP}"
 )
 
 # Merge siv3d-messagebus + hiredis into libsiv3d-messagebus[d].a
