@@ -59,10 +59,14 @@ namespace MessageBus::detail
 		[[nodiscard]]
 		static std::string generateUidUtf8();
 
-		void updateSession(RedisConnection& conn);
+		void publishPlayerJoin(redisAsyncContext* context);
+
+		void publishPlayerLeft(redisAsyncContext* context);
+
+		void updateSession(redisAsyncContext* context);
 
 		static void onSessionUpdateCallback(redisAsyncContext* context, redisReply* reply, PlayerList* self);
 
-		void deleteSession(RedisConnection& conn);
+		void deleteSession(redisAsyncContext* context);
 	};
 }

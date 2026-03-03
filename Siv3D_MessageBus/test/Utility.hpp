@@ -1,4 +1,5 @@
 #pragma once
+#include <MessageBus/detail/PlayerList.hpp>
 #include <MessageBus/detail/RedisConnection.hpp>
 #include <MessageBus/MessageBus.hpp>
 
@@ -38,6 +39,18 @@ static void Sleep(MessageBus::detail::RedisConnection& conn, Duration time)
 	Stopwatch sw{ StartImmediately::Yes };
 	while (sw < time)
 	{
+		conn.tick();
+		System::Sleep(TICK_INTERVAL);
+	}
+}
+
+// 一定時間 tick を回す（PlayerList + RedisConnection 用）
+static void Sleep(MessageBus::detail::PlayerList& plist, MessageBus::detail::RedisConnection& conn, Duration time)
+{
+	Stopwatch sw{ StartImmediately::Yes };
+	while (sw < time)
+	{
+		plist.beforeTick(conn);
 		conn.tick();
 		System::Sleep(TICK_INTERVAL);
 	}

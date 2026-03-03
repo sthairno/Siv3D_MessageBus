@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <gtest/gtest.h>
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -12,7 +12,9 @@
 #include <Siv3D.hpp>
 #include <MessageBus/detail/RedisConnection.hpp>
 #include <MessageBus/detail/RedisConnectionState.hpp>
+#include <algorithm>
 #include <string>
+#include <vector>
 
 namespace bp = boost::process::v2;
 namespace asio = boost::asio;
@@ -220,5 +222,74 @@ protected:
 		int exitCode = proc.wait();
 
 		ASSERT_EQ(exitCode, 0);
+	}
+
+	// docker exec で redis-cli --raw SUBSCRIBE を起動し、subscribe応答受信後に callback を実行、
+	// その後 terminate して stdout を返す。
+	// 返り値: 受信したメッセージ数。subscribe応答の channel 出現分は除外する。
+	template <class Callback>
+	static int WithSubscription(std::string_view channel, Callback&& callback)
+	{
+		if (channel.empty())
+		{
+			return 0;
+		}
+
+		asio::io_context ctx;
+		asio::readable_pipe pipe(ctx);
+
+		std::vector<std::string> args;
+		args.reserve(9);
+		args.push_back("exec");
+		args.push_back("-i");
+		args.push_back(REDIS_CONTAINER_NAME);
+		args.push_back("redis-cli");
+		if (!s_password.empty())
+		{
+			args.push_back("-a");
+			args.emplace_back(s_password);
+		}
+		args.push_back("--raw");
+		args.push_back("SUBSCRIBE");
+		args.emplace_back(channel);
+
+		bp::process proc(
+			ctx,
+			s_dockerPath,
+			args,
+			bp::process_stdio{{}, pipe, {}}
+		);
+
+		// subscribe応答（チャンネル名が出力される）を待ってから callback を実行
+		std::string output;
+		boost::system::error_code ec;
+		do
+		{
+			char buf[256];
+			const size_t n = asio::read(pipe, asio::buffer(buf), asio::transfer_at_least(1), ec);
+			output.append(buf, n);
+		}
+		while (output.find(channel) == std::string::npos && !ec);
+
+		callback();
+
+		proc.terminate();
+
+		asio::read(pipe, asio::dynamic_buffer(output), ec);
+		proc.wait();
+
+		// `--raw SUBSCRIBE` の出力中に、チャンネル名は
+		// - subscribe応答で1回
+		// - message受信ごとに1回ずつ
+		// 出現するため、(出現回数 - 1) をイベント数として返す
+		int occurrences = 0;
+		size_t pos = 0;
+		while ((pos = output.find(channel, pos)) != std::string::npos)
+		{
+			++occurrences;
+			pos += channel.size();
+		}
+
+		return occurrences - 1;
 	}
 };

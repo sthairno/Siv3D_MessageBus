@@ -14,6 +14,12 @@ extern "C" {
 
 namespace MessageBus::detail
 {
+	namespace
+	{
+		constexpr std::string_view PlayerJoinChannelUtf8 = "s3d-mbus:player-join";
+		constexpr std::string_view PlayerLeftChannelUtf8 = "s3d-mbus:player-left";
+	}
+
 	PlayerList::PlayerList(Options options)
 		: m_options(options)
 		, m_uidUtf8(generateUidUtf8())
@@ -30,7 +36,7 @@ namespace MessageBus::detail
 		m_sessionUpdatetInFlight = false;
 		m_sessionStatus = SessionStatus::InactiveOrExpired;
 
-		updateSession(conn);
+		updateSession(conn.context());
 	}
 
 	void PlayerList::beforeTick(RedisConnection& conn)
@@ -40,7 +46,7 @@ namespace MessageBus::detail
 			m_sessionStatus != SessionStatus::Error &&
 			m_timeSinceUpdate.elapsed() > m_options.sessionRefreshInterval)
 		{
-			updateSession(conn);
+			updateSession(conn.context());
 		}
 
 		if (m_sessionStatus == SessionStatus::Active &&
@@ -52,7 +58,8 @@ namespace MessageBus::detail
 
 	void PlayerList::beforeDisconnect(RedisConnection& conn)
 	{
-		deleteSession(conn);
+		publishPlayerLeft(conn.context());
+		deleteSession(conn.context());
 	}
 
 	void PlayerList::onDisconnect()
@@ -75,10 +82,9 @@ namespace MessageBus::detail
 		return sqids.encode(std::vector<std::uint64_t>{ a, b });
 	}
 
-	void PlayerList::updateSession(RedisConnection& conn)
+	void PlayerList::updateSession(redisAsyncContext* context)
 	{
-		auto* context = conn.context();
-		assert(context && conn.state() == RedisConnectionState::Connected);
+		assert(context);
 
 		// SET <key> 1 EX <ttl> GET
 		const static std::string_view value = "1";
@@ -114,7 +120,7 @@ namespace MessageBus::detail
 		}
 	}
 
-	void PlayerList::onSessionUpdateCallback(redisAsyncContext*, redisReply* reply, PlayerList* self)
+	void PlayerList::onSessionUpdateCallback(redisAsyncContext* context, redisReply* reply, PlayerList* self)
 	{
 		if (!self)
 		{
@@ -151,18 +157,55 @@ namespace MessageBus::detail
 
 		if (reply->type == REDIS_REPLY_NIL)
 		{
-			// TODO: Implement `s3d-mbus:player:joined` event
-		}
-		else if (reply->type == REDIS_REPLY_STRING)
-		{
-			// Do nothing
+			self->publishPlayerJoin(context);
 		}
 	}
 
-	void PlayerList::deleteSession(RedisConnection& conn)
+	void PlayerList::publishPlayerJoin(redisAsyncContext* context)
 	{
-		auto* context = conn.context();
-		assert(context && conn.state() == RedisConnectionState::Connected);
+		if (!context) { return; }
+
+		const char* argv[3];
+		size_t argvlen[3];
+		argv[0] = "PUBLISH";
+		argvlen[0] = 7;
+		argv[1] = PlayerJoinChannelUtf8.data();
+		argvlen[1] = PlayerJoinChannelUtf8.size();
+		argv[2] = m_uidUtf8.data();
+		argvlen[2] = m_uidUtf8.size();
+
+		redisAsyncCommandArgv(
+			context,
+			nullptr,
+			nullptr,
+			3, argv, argvlen
+		);
+	}
+
+	void PlayerList::publishPlayerLeft(redisAsyncContext* context)
+	{
+		if (!context) { return; }
+
+		const char* argv[3];
+		size_t argvlen[3];
+		argv[0] = "PUBLISH";
+		argvlen[0] = 7;
+		argv[1] = PlayerLeftChannelUtf8.data();
+		argvlen[1] = PlayerLeftChannelUtf8.size();
+		argv[2] = m_uidUtf8.data();
+		argvlen[2] = m_uidUtf8.size();
+
+		redisAsyncCommandArgv(
+			context,
+			nullptr,
+			nullptr,
+			3, argv, argvlen
+		);
+	}
+
+	void PlayerList::deleteSession(redisAsyncContext* context)
+	{
+		assert(context);
 
 		const char* argv[2];
 		size_t argvlen[2];

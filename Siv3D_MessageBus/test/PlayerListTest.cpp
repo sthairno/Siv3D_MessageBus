@@ -113,6 +113,25 @@ TEST_F(PlayerListTest, OnConnectSetsSessionKeyWithTtlAndValue)
 	EXPECT_LE(pttl, 2000);
 }
 
+TEST_F(PlayerListTest, OnConnectPublishesPlayerJoin)
+{
+	MessageBus::detail::RedisConnection conn{ { .ip=U"127.0.0.1", .port=6379 } };
+	MessageBus::detail::PlayerList plist{ {
+		.sessionTtlMs = 10,
+		.sessionRefreshInterval = 30ms,
+	} };
+	ASSERT_TRUE(WaitForConnection(conn, 10s));
+	plist.onConnect(conn);
+
+	const int received = WithSubscription("s3d-mbus:player-join", [&]()
+	{
+		// refreshを複数回させる
+		Sleep(plist, conn, 100ms);
+	});
+
+	EXPECT_GE(received, 1);
+}
+
 // beforeTick
 
 TEST_F(PlayerListTest, BeforeTickUpdatesSessionKey)
@@ -140,6 +159,31 @@ TEST_F(PlayerListTest, BeforeTickUpdatesSessionKey)
 			RedisPTTL(key) > pttlBeforeRefresh && 
 			plist.sessionStatus() == MessageBus::detail::PlayerList::SessionStatus::Active; 
 	}, 500ms));
+}
+
+TEST_F(PlayerListTest, BeforeTickDoesNotPublishPlayerJoinOnRefresh)
+{
+	MessageBus::detail::RedisConnection conn{ { .ip=U"127.0.0.1", .port=6379 } };
+	MessageBus::detail::PlayerList plist{ {
+		.sessionTtlMs = 60 * 1000,
+		.sessionRefreshInterval = 10ms,
+	} };
+
+	ASSERT_TRUE(WaitForConnection(conn, 10s));
+	plist.onConnect(conn);
+
+	ASSERT_TRUE(WaitUntil(plist, conn, [&]() { 
+		return plist.sessionStatus() == MessageBus::detail::PlayerList::SessionStatus::Active; 
+	}, 100ms));
+	Sleep(plist, conn, 100ms);
+
+	const int received = WithSubscription("s3d-mbus:player-join", [&]()
+	{
+		// refreshを複数回させる
+		Sleep(plist, conn, 100ms);
+	});
+
+	EXPECT_EQ(received, 0);
 }
 
 TEST_F(PlayerListTest, BeforeTickRecreatesSessionWhenExpired)
@@ -173,6 +217,41 @@ TEST_F(PlayerListTest, BeforeTickRecreatesSessionWhenExpired)
 		return plist.sessionStatus() == MessageBus::detail::PlayerList::SessionStatus::Active; 
 	}, 100ms));
 	ASSERT_TRUE(RedisExists(key));
+}
+
+TEST_F(PlayerListTest, BeforeTickPublishesPlayerJoinWhenSessionRecreated)
+{
+	MessageBus::detail::RedisConnection conn{ { .ip=U"127.0.0.1", .port=6379 } };
+	MessageBus::detail::PlayerList plist{ MessageBus::detail::PlayerList::Options{
+		.sessionTtlMs = 200,
+		.sessionRefreshInterval = 100ms,
+	} };
+	ASSERT_TRUE(WaitForConnection(conn, 10s));
+
+	// セッションを作成
+	plist.onConnect(conn);
+	ASSERT_TRUE(WaitUntil(plist, conn, [&]() { 
+		return plist.sessionStatus() == MessageBus::detail::PlayerList::SessionStatus::Active; 
+	}, 100ms));
+
+	// セッション再作成
+	System::Sleep(210ms);
+	plist.beforeTick(conn);
+	conn.tick();
+	ASSERT_TRUE(plist.sessionStatus() == MessageBus::detail::PlayerList::SessionStatus::InactiveOrExpired);
+
+	const int received = WithSubscription("s3d-mbus:player-join", [&]()
+	{
+		// 次回tickでセッションが再生成されたことを検知
+		WaitUntil(plist, conn, [&]() {
+			return plist.sessionStatus() == MessageBus::detail::PlayerList::SessionStatus::Active;
+		}, 1s);
+
+		// 次のtickでjoinが再度publishされる
+		Sleep(plist, conn, 100ms);
+	});
+
+	EXPECT_EQ(received, 1);
 }
 
 // beforeDisconnect
@@ -209,6 +288,36 @@ TEST_F(PlayerListTest, BeforeDisconnectDeletesSessionKey)
 		return plist.sessionStatus() == MessageBus::detail::PlayerList::SessionStatus::InactiveOrExpired; 
 	}, 5s));
 	EXPECT_FALSE(RedisExists(key));
+}
+
+TEST_F(PlayerListTest, BeforeDisconnectPublishesPlayerLeft)
+{
+	MessageBus::detail::PlayerList plist{ { } };
+	MessageBus::detail::RedisConnection conn{ {
+		.ip = U"127.0.0.1",
+		.port = 6379,
+		.onDisconnect = [&]()
+		{
+			plist.onDisconnect();
+		},
+	} };
+
+	ASSERT_TRUE(WaitForConnection(conn, 10s));
+	plist.onConnect(conn);
+
+	ASSERT_TRUE(WaitUntil(plist, conn, [&]() {
+		return plist.sessionStatus() == MessageBus::detail::PlayerList::SessionStatus::Active;
+	}, 5s));
+
+	const int received = WithSubscription("s3d-mbus:player-left", [&]()
+	{
+		plist.beforeDisconnect(conn);
+		conn.disconnect();
+
+		WaitUntil(plist, conn, [&]() { return conn.state() == MessageBus::detail::RedisConnectionState::Disconnected; }, 3s);
+	});
+
+	EXPECT_EQ(received, 1);
 }
 
 // onDisconnect
