@@ -18,15 +18,19 @@ namespace MessageBus::detail
 	{
 		constexpr std::string_view PlayerJoinChannelUtf8 = "s3d-mbus:player-join";
 		constexpr std::string_view PlayerLeftChannelUtf8 = "s3d-mbus:player-left";
+		constexpr std::string_view PlayerKeyPrefix = "s3d-mbus:player:";
+		constexpr std::string_view PlayerKeysPattern = "s3d-mbus:player:*";
 	}
 
 	PlayerList::PlayerList(Options options)
 		: m_options(options)
 		, m_uidUtf8(generateUidUtf8())
-		, m_sessionKeyUtf8("s3d-mbus:player:" + m_uidUtf8)
+		, m_sessionKeyUtf8(std::string(PlayerKeyPrefix) + m_uidUtf8)
 		, m_timeSinceUpdate(s3d::StartImmediately::No)
 		, m_sessionUpdatetInFlight(false)
 		, m_sessionStatus(SessionStatus::InactiveOrExpired)
+		, m_refreshInFlight(false)
+		, m_timeSinceLastRefresh(s3d::StartImmediately::No)
 	{
 	}
 
@@ -37,6 +41,9 @@ namespace MessageBus::detail
 		m_sessionStatus = SessionStatus::InactiveOrExpired;
 
 		updateSession(conn.context());
+
+		m_timeSinceLastRefresh.restart();
+		fetchPlayerList(conn.context());
 	}
 
 	void PlayerList::beforeTick(RedisConnection& conn)
@@ -54,6 +61,13 @@ namespace MessageBus::detail
 		{
 			m_sessionStatus = SessionStatus::InactiveOrExpired;
 		}
+
+		if (conn.state() == RedisConnectionState::Connected &&
+			not m_refreshInFlight &&
+			m_timeSinceLastRefresh.elapsed() >= m_options.playerListPollInterval)
+		{
+			fetchPlayerList(conn.context());
+		}
 	}
 
 	void PlayerList::beforeDisconnect(RedisConnection& conn)
@@ -67,6 +81,10 @@ namespace MessageBus::detail
 		m_timeSinceUpdate.reset();
 		m_sessionUpdatetInFlight = false;
 		m_sessionStatus = SessionStatus::InactiveOrExpired;
+
+		m_refreshInFlight = false;
+		m_timeSinceLastRefresh.reset();
+		m_connectedPlayerUidsUtf8.clear();
 	}
 
 	std::string PlayerList::generateUidUtf8()
@@ -220,5 +238,85 @@ namespace MessageBus::detail
 			nullptr,
 			2, argv, argvlen
 		);
+	}
+
+	void PlayerList::fetchPlayerList(redisAsyncContext* context)
+	{
+		if (!context) { return; }
+
+		const char* argv[2];
+		size_t argvlen[2];
+		argv[0] = "KEYS";
+		argvlen[0] = 4;
+		argv[1] = PlayerKeysPattern.data();
+		argvlen[1] = PlayerKeysPattern.size();
+
+		const int rc = redisAsyncCommandArgv(
+			context,
+			reinterpret_cast<redisCallbackFn*>(PlayerList::fetchPlayerListCallback),
+			this,
+			2, argv, argvlen
+		);
+
+		if (rc == REDIS_OK)
+		{
+			m_refreshInFlight = true;
+		}
+		else
+		{
+			s3d::Logger << U"[MessageBus][ERROR] Failed to fetch connected player list: Command execution was failed";
+		}
+	}
+
+	void PlayerList::fetchPlayerListCallback(redisAsyncContext* context, redisReply* reply, PlayerList* self)
+	{
+		if (!self)
+		{
+			return;
+		}
+
+		self->m_refreshInFlight = false;
+
+		if (!reply)
+		{
+			return;
+		}
+
+		if (reply->type == REDIS_REPLY_ERROR)
+		{
+			std::string_view message{ reply->str, reply->len };
+			s3d::Logger
+				<< U"[MessageBus][ERROR] Failed to fetch connected player list: "
+				<< s3d::Unicode::FromUTF8(message);
+			return;
+		}
+
+		if (reply->type != REDIS_REPLY_ARRAY)
+		{
+			return;
+		}
+
+		self->m_connectedPlayerUidsUtf8.clear();
+		self->m_connectedPlayerUidsUtf8.reserve(static_cast<size_t>(reply->elements));
+
+		for (size_t i = 0; i < static_cast<size_t>(reply->elements); ++i)
+		{
+			redisReply* elem = reply->element[i];
+			if (!elem || elem->type != REDIS_REPLY_STRING || !elem->str || elem->len == 0)
+			{
+				continue;
+			}
+
+			std::string_view key{ elem->str, static_cast<size_t>(elem->len) };
+			if (!key.starts_with(PlayerKeyPrefix))
+			{
+				continue;
+			}
+
+			std::string_view uid = key.substr(PlayerKeyPrefix.size());
+			self->m_connectedPlayerUidsUtf8.emplace_back(uid);
+		}
+
+		self->m_timeSinceLastRefresh.restart();
 	}
 }

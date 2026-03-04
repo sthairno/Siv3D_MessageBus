@@ -7,6 +7,7 @@
 
 #include <Siv3D.hpp>
 
+#include <algorithm>
 #include <cctype>
 #include <chrono>
 #include <cstdlib>
@@ -337,4 +338,131 @@ TEST_F(PlayerListTest, OnDisconnectResetsSessionStatus)
 
 	plist.onDisconnect();
 	EXPECT_EQ(plist.sessionStatus(), MessageBus::detail::PlayerList::SessionStatus::InactiveOrExpired);
+}
+
+// connectedPlayerUidsUtf8
+
+TEST_F(PlayerListTest, ConnectedPlayerUidsUtf8IsEmptyBeforeConnect)
+{
+	MessageBus::detail::PlayerList plist{ {} };
+	EXPECT_TRUE(plist.connectedPlayerUidsUtf8().empty());
+}
+
+TEST_F(PlayerListTest, ConnectedPlayerUidsUtf8ContainsSelfAfterFirstKeysResponse)
+{
+	MessageBus::detail::RedisConnection conn{ { .ip = U"127.0.0.1", .port = 6379 } };
+	MessageBus::detail::PlayerList plist{ {
+		.sessionTtlMs = 5000,
+		.playerListPollInterval = 100ms,
+	} };
+
+	ASSERT_TRUE(WaitForConnection(conn, 10s));
+	plist.onConnect(conn);
+
+	ASSERT_TRUE(WaitUntil(plist, conn, [&]() {
+		const auto& uids = plist.connectedPlayerUidsUtf8();
+		if (uids.empty()) return false;
+		return std::find(uids.begin(), uids.end(), plist.uidUtf8()) != uids.end();
+	}, 5s));
+
+	const auto& uids = plist.connectedPlayerUidsUtf8();
+	EXPECT_GE(uids.size(), 1u);
+	EXPECT_NE(std::find(uids.begin(), uids.end(), std::string(plist.uidUtf8())), uids.end());
+}
+
+TEST_F(PlayerListTest, ConnectedPlayerUidsUtf8FirstKeysSeesPreExistingSessions)
+{
+	const std::string preExistingUid = "pre-existing-session-uid";
+	const std::string preExistingKey = "s3d-mbus:player:" + preExistingUid;
+
+	// 接続前に Redis CLI でセッションキーを 1 件追加
+	{
+		auto [exitCode, _] = ExecRedisCli({ "SET", preExistingKey, "1" });
+		ASSERT_EQ(exitCode, 0);
+	}
+	ASSERT_TRUE(RedisExists(preExistingKey));
+
+	MessageBus::detail::RedisConnection conn{ { .ip = U"127.0.0.1", .port = 6379 } };
+	MessageBus::detail::PlayerList plist{ {
+		.sessionTtlMs = 5000,
+		.playerListPollInterval = 100ms,
+	} };
+
+	ASSERT_TRUE(WaitForConnection(conn, 10s));
+	plist.onConnect(conn);
+
+	// 初回 KEYS のレスポンスで、接続前からあったセッションと自 UID の両方が含まれること
+	ASSERT_TRUE(WaitUntil(plist, conn, [&]() {
+		const auto& uids = plist.connectedPlayerUidsUtf8();
+		return uids.size() >= 2u &&
+			std::find(uids.begin(), uids.end(), plist.uidUtf8()) != uids.end() &&
+			std::find(uids.begin(), uids.end(), preExistingUid) != uids.end();
+	}, 5s));
+
+	const auto& uids = plist.connectedPlayerUidsUtf8();
+	EXPECT_GE(uids.size(), 2u);
+	EXPECT_NE(std::find(uids.begin(), uids.end(), plist.uidUtf8()), uids.end());
+	EXPECT_NE(std::find(uids.begin(), uids.end(), preExistingUid), uids.end());
+}
+
+TEST_F(PlayerListTest, ConnectedPlayerUidsUtf8RefreshSeesSessionAddedViaRedisCli)
+{
+	const std::string addedUid = "redis-cli-added-session-uid";
+	const std::string addedKey = "s3d-mbus:player:" + addedUid;
+
+	MessageBus::detail::RedisConnection conn{ { .ip = U"127.0.0.1", .port = 6379 } };
+	MessageBus::detail::PlayerList plist{ {
+		.sessionTtlMs = 5000,
+		.playerListPollInterval = 100ms,
+	} };
+
+	ASSERT_TRUE(WaitForConnection(conn, 10s));
+	plist.onConnect(conn);
+
+	// 初回 KEYS のレスポンスを待つ（自 UID のみ）
+	ASSERT_TRUE(WaitUntil(plist, conn, [&]() {
+		const auto& uids = plist.connectedPlayerUidsUtf8();
+		if (uids.empty()) return false;
+		return std::find(uids.begin(), uids.end(), plist.uidUtf8()) != uids.end();
+	}, 5s));
+
+	// リフレッシュ前に Redis CLI でセッションを 1 件追加
+	{
+		auto [exitCode, _] = ExecRedisCli({ "SET", addedKey, "1" });
+		ASSERT_EQ(exitCode, 0);
+	}
+	ASSERT_TRUE(RedisExists(addedKey));
+
+	// 次の KEYS ポーリング（リフレッシュ）で追加した UID がリストに含まれること
+	ASSERT_TRUE(WaitUntil(plist, conn, [&]() {
+		const auto& uids = plist.connectedPlayerUidsUtf8();
+		const std::string selfUid(plist.uidUtf8());
+		return uids.size() >= 2u &&
+			std::find(uids.begin(), uids.end(), plist.uidUtf8()) != uids.end() &&
+			std::find(uids.begin(), uids.end(), addedUid) != uids.end();
+	}, 5s));
+
+	const auto& uids = plist.connectedPlayerUidsUtf8();
+	EXPECT_GE(uids.size(), 2u);
+	EXPECT_NE(std::find(uids.begin(), uids.end(), plist.uidUtf8()), uids.end());
+	EXPECT_NE(std::find(uids.begin(), uids.end(), addedUid), uids.end());
+}
+
+TEST_F(PlayerListTest, ConnectedPlayerUidsUtf8IsEmptyAfterOnDisconnect)
+{
+	MessageBus::detail::RedisConnection conn{ { .ip = U"127.0.0.1", .port = 6379 } };
+	MessageBus::detail::PlayerList plist{ {
+		.sessionTtlMs = 5000,
+		.playerListPollInterval = 100ms,
+	} };
+
+	ASSERT_TRUE(WaitForConnection(conn, 10s));
+	plist.onConnect(conn);
+
+	ASSERT_TRUE(WaitUntil(plist, conn, [&]() {
+		return plist.connectedPlayerUidsUtf8().size() >= 1u;
+	}, 5s));
+
+	plist.onDisconnect();
+	EXPECT_TRUE(plist.connectedPlayerUidsUtf8().empty());
 }

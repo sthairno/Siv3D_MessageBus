@@ -4,6 +4,7 @@
 
 #include <string>
 #include <string_view>
+#include <vector>
 #include <Siv3D/Duration.hpp>
 #include <Siv3D/Stopwatch.hpp>
 
@@ -17,6 +18,7 @@ namespace MessageBus::detail
 		{
 			int sessionTtlMs = 60 * 1000;
 			s3d::Duration sessionRefreshInterval = s3d::Seconds{ 55 };
+			s3d::Duration playerListPollInterval = s3d::Seconds{ 30 };
 		};
 
 		enum class SessionStatus
@@ -41,7 +43,10 @@ namespace MessageBus::detail
 		
 		[[nodiscard]]
 		SessionStatus sessionStatus() const noexcept { return m_sessionStatus; }
-		
+
+		[[nodiscard]]
+		const std::vector<std::string>& connectedPlayerUidsUtf8() const noexcept { return m_connectedPlayerUidsUtf8; }
+
 	private:
 
 		Options m_options;
@@ -56,6 +61,12 @@ namespace MessageBus::detail
 
 		SessionStatus m_sessionStatus;
 
+		std::vector<std::string> m_connectedPlayerUidsUtf8;
+
+		bool m_refreshInFlight;
+
+		s3d::Stopwatch m_timeSinceLastRefresh;
+
 		[[nodiscard]]
 		static std::string generateUidUtf8();
 
@@ -68,5 +79,9 @@ namespace MessageBus::detail
 		static void onSessionUpdateCallback(redisAsyncContext* context, redisReply* reply, PlayerList* self);
 
 		void deleteSession(redisAsyncContext* context);
+
+		void fetchPlayerList(redisAsyncContext* context);
+
+		static void fetchPlayerListCallback(redisAsyncContext* context, redisReply* reply, PlayerList* self);
 	};
 }
