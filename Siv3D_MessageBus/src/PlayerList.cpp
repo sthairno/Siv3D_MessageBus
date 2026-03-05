@@ -27,7 +27,7 @@ namespace MessageBus::detail
 		, m_uidUtf8(generateUidUtf8())
 		, m_sessionKeyUtf8(std::string(PlayerKeyPrefix) + m_uidUtf8)
 		, m_timeSinceUpdate(s3d::StartImmediately::No)
-		, m_sessionUpdatetInFlight(false)
+		, m_sessionUpdateInFlight(false)
 		, m_sessionStatus(SessionStatus::InactiveOrExpired)
 		, m_refreshInFlight(false)
 		, m_timeSinceLastRefresh(s3d::StartImmediately::No)
@@ -37,7 +37,7 @@ namespace MessageBus::detail
 	void PlayerList::onConnect(RedisConnection& conn)
 	{
 		m_timeSinceUpdate.restart();
-		m_sessionUpdatetInFlight = false;
+		m_sessionUpdateInFlight = false;
 		m_sessionStatus = SessionStatus::InactiveOrExpired;
 
 		updateSession(conn.context());
@@ -49,7 +49,7 @@ namespace MessageBus::detail
 	void PlayerList::beforeTick(RedisConnection& conn)
 	{
 		if (conn.state() == RedisConnectionState::Connected &&
-			not m_sessionUpdatetInFlight &&
+			not m_sessionUpdateInFlight &&
 			m_sessionStatus != SessionStatus::Error &&
 			m_timeSinceUpdate.elapsed() > m_options.sessionRefreshInterval)
 		{
@@ -103,7 +103,7 @@ namespace MessageBus::detail
 	void PlayerList::onDisconnect()
 	{
 		m_timeSinceUpdate.reset();
-		m_sessionUpdatetInFlight = false;
+		m_sessionUpdateInFlight = false;
 		m_sessionStatus = SessionStatus::InactiveOrExpired;
 
 		m_refreshInFlight = false;
@@ -180,7 +180,7 @@ namespace MessageBus::detail
 
 		if (rc == REDIS_OK)
 		{
-			m_sessionUpdatetInFlight = true;
+			m_sessionUpdateInFlight = true;
 		}
 		else
 		{
@@ -196,7 +196,7 @@ namespace MessageBus::detail
 			return;
 		}
 
-		self->m_sessionUpdatetInFlight = false;
+		self->m_sessionUpdateInFlight = false;
 
 		if (!reply)
 		{

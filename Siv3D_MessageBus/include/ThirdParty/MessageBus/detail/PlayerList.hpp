@@ -68,7 +68,7 @@ namespace MessageBus::detail
 
 		s3d::Stopwatch m_timeSinceUpdate;
 
-		bool m_sessionUpdatetInFlight;
+		bool m_sessionUpdateInFlight;
 
 		SessionStatus m_sessionStatus;
 
