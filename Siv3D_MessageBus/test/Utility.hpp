@@ -52,6 +52,7 @@ static void Sleep(MessageBus::detail::PlayerList& plist, MessageBus::detail::Red
 	{
 		plist.beforeTick(conn);
 		conn.tick();
+		plist.afterTick();
 		System::Sleep(TICK_INTERVAL);
 	}
 }

@@ -30,7 +30,7 @@ protected:
 	}
 
 public:
-	// PlayerList の beforeTick と RedisConnection の tick を両方回しながら条件待ち
+	// PlayerList の beforeTick / tick / afterTick を回しながら条件待ち
 	template <class Pred>
 	static bool WaitUntil(MessageBus::detail::PlayerList& plist, MessageBus::detail::RedisConnection& conn, Pred&& predicate, Duration timeout = 5s)
 	{
@@ -39,6 +39,7 @@ public:
 		{
 			plist.beforeTick(conn);
 			conn.tick();
+			plist.afterTick();
 			System::Sleep(TICK_INTERVAL);
 		}
 		return predicate();
@@ -521,4 +522,107 @@ TEST_F(PlayerListTest, ConnectedPlayerUidsUtf8IsEmptyAfterOnDisconnect)
 
 	plist.onDisconnect();
 	EXPECT_TRUE(plist.connectedPlayerUidsUtf8().empty());
+}
+
+// afterTick
+
+TEST_F(PlayerListTest, AfterTickReportsEmptyAddedAndRemovedWhenUnchanged)
+{
+	MessageBus::detail::RedisConnection conn{ { .ip = U"127.0.0.1", .port = 6379 } };
+	MessageBus::detail::PlayerList plist{ {} };
+
+	ASSERT_TRUE(WaitForConnection(conn, 10s));
+	plist.onConnect(conn);
+	ASSERT_TRUE(WaitUntil(plist, conn, [&]() {
+		return plist.connectedPlayerUidsUtf8().size() >= 1u;
+	}, 5s));
+
+	plist.beforeTick(conn);
+	conn.tick();
+	plist.afterTick();
+
+	EXPECT_EQ(plist.addedPlayerUidsUtf8(), std::vector<std::string>{});
+	EXPECT_EQ(plist.removedPlayerUidsUtf8(), std::vector<std::string>{});
+}
+
+TEST_F(PlayerListTest, AfterTickReportsAddedUids)
+{
+	MessageBus::detail::RedisConnection conn{ { .ip = U"127.0.0.1", .port = 6379 } };
+	MessageBus::detail::PlayerList plist{ {} };
+
+	ASSERT_TRUE(WaitForConnection(conn, 10s));
+	plist.onConnect(conn);
+	ASSERT_TRUE(WaitUntil(plist, conn, [&]() {
+		return plist.connectedPlayerUidsUtf8().size() >= 1u;
+	}, 5s));
+
+	plist.beforeTick(conn);
+	conn.tick();
+	plist.afterTick();
+
+	plist.handlePubSubMessage("s3d-mbus:player-join", "new-player-uid");
+
+	plist.beforeTick(conn);
+	conn.tick();
+	plist.afterTick();
+
+	std::vector<std::string> expectedAdded = { "new-player-uid" };
+	std::vector<std::string> actualAdded = plist.addedPlayerUidsUtf8();
+	std::sort(expectedAdded.begin(), expectedAdded.end());
+	std::sort(actualAdded.begin(), actualAdded.end());
+	EXPECT_EQ(actualAdded, expectedAdded);
+	EXPECT_EQ(plist.removedPlayerUidsUtf8(), std::vector<std::string>{});
+}
+
+TEST_F(PlayerListTest, AfterTickReportsRemovedUids)
+{
+	MessageBus::detail::RedisConnection conn{ { .ip = U"127.0.0.1", .port = 6379 } };
+	MessageBus::detail::PlayerList plist{ {} };
+
+	ASSERT_TRUE(WaitForConnection(conn, 10s));
+	plist.onConnect(conn);
+	ASSERT_TRUE(WaitUntil(plist, conn, [&]() {
+		return plist.connectedPlayerUidsUtf8().size() >= 1u;
+	}, 5s));
+
+	plist.handlePubSubMessage("s3d-mbus:player-join", "to-remove-uid");
+
+	plist.beforeTick(conn);
+	conn.tick();
+	plist.afterTick();
+
+	ASSERT_NE(plist.connectedPlayerUidsUtf8().find("to-remove-uid"), plist.connectedPlayerUidsUtf8().end());
+
+	plist.handlePubSubMessage("s3d-mbus:player-left", "to-remove-uid");
+
+	plist.beforeTick(conn);
+	conn.tick();
+	plist.afterTick();
+
+	EXPECT_EQ(plist.addedPlayerUidsUtf8(), std::vector<std::string>{});
+	std::vector<std::string> expectedRemoved = { "to-remove-uid" };
+	std::vector<std::string> actualRemoved = plist.removedPlayerUidsUtf8();
+	std::sort(expectedRemoved.begin(), expectedRemoved.end());
+	std::sort(actualRemoved.begin(), actualRemoved.end());
+	EXPECT_EQ(actualRemoved, expectedRemoved);
+	EXPECT_EQ(plist.connectedPlayerUidsUtf8().find("to-remove-uid"), plist.connectedPlayerUidsUtf8().end());
+}
+
+TEST_F(PlayerListTest, AfterTickClearsAddedAndRemovedOnDisconnect)
+{
+	MessageBus::detail::RedisConnection conn{ { .ip = U"127.0.0.1", .port = 6379 } };
+	MessageBus::detail::PlayerList plist{ {} };
+
+	ASSERT_TRUE(WaitForConnection(conn, 10s));
+	plist.onConnect(conn);
+	ASSERT_TRUE(WaitUntil(plist, conn, [&]() {
+		return plist.connectedPlayerUidsUtf8().size() >= 1u;
+	}, 5s));
+
+	plist.handlePubSubMessage("s3d-mbus:player-join", "temp-uid");
+	plist.afterTick();
+
+	plist.onDisconnect();
+	EXPECT_EQ(plist.addedPlayerUidsUtf8(), std::vector<std::string>{});
+	EXPECT_EQ(plist.removedPlayerUidsUtf8(), std::vector<std::string>{});
 }

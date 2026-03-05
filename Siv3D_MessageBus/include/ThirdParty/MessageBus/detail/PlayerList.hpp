@@ -5,6 +5,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_set>
+#include <vector>
 #include <Siv3D/Duration.hpp>
 #include <Siv3D/Stopwatch.hpp>
 
@@ -34,6 +35,8 @@ namespace MessageBus::detail
 
 		void beforeTick(RedisConnection& conn);
 
+		void afterTick();
+
 		void beforeDisconnect(RedisConnection& conn);
 
 		void onDisconnect();
@@ -48,6 +51,12 @@ namespace MessageBus::detail
 
 		[[nodiscard]]
 		const std::unordered_set<std::string>& connectedPlayerUidsUtf8() const noexcept { return m_connectedPlayerUidsUtf8; }
+
+		[[nodiscard]]
+		const std::vector<std::string>& addedPlayerUidsUtf8() const noexcept { return m_addedPlayerUidsUtf8; }
+
+		[[nodiscard]]
+		const std::vector<std::string>& removedPlayerUidsUtf8() const noexcept { return m_removedPlayerUidsUtf8; }
 
 	private:
 
@@ -64,6 +73,10 @@ namespace MessageBus::detail
 		SessionStatus m_sessionStatus;
 
 		std::unordered_set<std::string> m_connectedPlayerUidsUtf8;
+
+		std::unordered_set<std::string> m_previousConnectedPlayerUidsUtf8;
+		std::vector<std::string> m_addedPlayerUidsUtf8;
+		std::vector<std::string> m_removedPlayerUidsUtf8;
 
 		bool m_refreshInFlight;
 

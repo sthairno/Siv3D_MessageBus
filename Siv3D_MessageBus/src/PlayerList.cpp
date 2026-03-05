@@ -70,6 +70,30 @@ namespace MessageBus::detail
 		}
 	}
 
+	void PlayerList::afterTick()
+	{
+		m_addedPlayerUidsUtf8.clear();
+		m_removedPlayerUidsUtf8.clear();
+
+		for (const std::string& uid : m_connectedPlayerUidsUtf8)
+		{
+			if (m_previousConnectedPlayerUidsUtf8.find(uid) == m_previousConnectedPlayerUidsUtf8.end())
+			{
+				m_addedPlayerUidsUtf8.push_back(uid);
+			}
+		}
+
+		for (const std::string& uid : m_previousConnectedPlayerUidsUtf8)
+		{
+			if (m_connectedPlayerUidsUtf8.find(uid) == m_connectedPlayerUidsUtf8.end())
+			{
+				m_removedPlayerUidsUtf8.push_back(uid);
+			}
+		}
+
+		m_previousConnectedPlayerUidsUtf8 = m_connectedPlayerUidsUtf8;
+	}
+
 	void PlayerList::beforeDisconnect(RedisConnection& conn)
 	{
 		publishPlayerLeft(conn.context());
@@ -84,7 +108,11 @@ namespace MessageBus::detail
 
 		m_refreshInFlight = false;
 		m_timeSinceLastRefresh.reset();
+
 		m_connectedPlayerUidsUtf8.clear();
+		m_previousConnectedPlayerUidsUtf8.clear();
+		m_addedPlayerUidsUtf8.clear();
+		m_removedPlayerUidsUtf8.clear();
 	}
 
 	bool PlayerList::handlePubSubMessage(std::string_view channel, std::string_view payload)
