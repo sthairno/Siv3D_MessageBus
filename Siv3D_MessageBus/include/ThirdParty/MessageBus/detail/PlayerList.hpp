@@ -4,7 +4,7 @@
 
 #include <string>
 #include <string_view>
-#include <vector>
+#include <unordered_set>
 #include <Siv3D/Duration.hpp>
 #include <Siv3D/Stopwatch.hpp>
 
@@ -45,7 +45,7 @@ namespace MessageBus::detail
 		SessionStatus sessionStatus() const noexcept { return m_sessionStatus; }
 
 		[[nodiscard]]
-		const std::vector<std::string>& connectedPlayerUidsUtf8() const noexcept { return m_connectedPlayerUidsUtf8; }
+		const std::unordered_set<std::string>& connectedPlayerUidsUtf8() const noexcept { return m_connectedPlayerUidsUtf8; }
 
 	private:
 
@@ -61,7 +61,7 @@ namespace MessageBus::detail
 
 		SessionStatus m_sessionStatus;
 
-		std::vector<std::string> m_connectedPlayerUidsUtf8;
+		std::unordered_set<std::string> m_connectedPlayerUidsUtf8;
 
 		bool m_refreshInFlight;
 

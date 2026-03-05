@@ -314,7 +314,7 @@ namespace MessageBus::detail
 			}
 
 			std::string_view uid = key.substr(PlayerKeyPrefix.size());
-			self->m_connectedPlayerUidsUtf8.emplace_back(uid);
+			self->m_connectedPlayerUidsUtf8.emplace(uid);
 		}
 
 		self->m_timeSinceLastRefresh.restart();
