@@ -38,6 +38,8 @@ namespace MessageBus::detail
 
 		void onDisconnect();
 
+		bool handlePubSubMessage(std::string_view channel, std::string_view payload);
+
 		[[nodiscard]]
 		std::string_view uidUtf8() const noexcept { return m_uidUtf8; }
 		

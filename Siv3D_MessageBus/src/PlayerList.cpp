@@ -87,6 +87,29 @@ namespace MessageBus::detail
 		m_connectedPlayerUidsUtf8.clear();
 	}
 
+	bool PlayerList::handlePubSubMessage(std::string_view channel, std::string_view payload)
+	{
+		if (channel == PlayerJoinChannelUtf8)
+		{
+			if (!payload.empty())
+			{
+				m_connectedPlayerUidsUtf8.emplace(payload);
+			}
+			return true;
+		}
+
+		if (channel == PlayerLeftChannelUtf8)
+		{
+			if (!payload.empty())
+			{
+				m_connectedPlayerUidsUtf8.erase(std::string(payload));
+			}
+			return true;
+		}
+
+		return false;
+	}
+
 	std::string PlayerList::generateUidUtf8()
 	{
 		const std::uint64_t a = s3d::RandomUint64();

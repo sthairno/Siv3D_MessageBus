@@ -340,6 +340,62 @@ TEST_F(PlayerListTest, OnDisconnectResetsSessionStatus)
 	EXPECT_EQ(plist.sessionStatus(), MessageBus::detail::PlayerList::SessionStatus::InactiveOrExpired);
 }
 
+// handlePubSubMessage
+
+TEST_F(PlayerListTest, HandlePubSubMessageAddsUidOnPlayerJoin)
+{
+	MessageBus::detail::RedisConnection conn{ { .ip = U"127.0.0.1", .port = 6379 } };
+	MessageBus::detail::PlayerList plist{ {} };
+
+	ASSERT_TRUE(WaitForConnection(conn, 10s));
+	plist.onConnect(conn);
+	ASSERT_TRUE(WaitUntil(plist, conn, [&]() {
+		return plist.sessionStatus() == MessageBus::detail::PlayerList::SessionStatus::Active;
+	}, 5s));
+
+	const bool handled = plist.handlePubSubMessage("s3d-mbus:player-join", "user-123");
+	EXPECT_TRUE(handled);
+
+	const auto& uids = plist.connectedPlayerUidsUtf8();
+	EXPECT_NE(uids.find("user-123"), uids.end());
+}
+
+TEST_F(PlayerListTest, HandlePubSubMessageRemovesUidOnPlayerLeft)
+{
+	MessageBus::detail::RedisConnection conn{ { .ip = U"127.0.0.1", .port = 6379 } };
+	MessageBus::detail::PlayerList plist{ {} };
+
+	ASSERT_TRUE(WaitForConnection(conn, 10s));
+	plist.onConnect(conn);
+	ASSERT_TRUE(WaitUntil(plist, conn, [&]() {
+		return plist.sessionStatus() == MessageBus::detail::PlayerList::SessionStatus::Active;
+	}, 5s));
+
+	plist.handlePubSubMessage("s3d-mbus:player-join", "user-123");
+	ASSERT_NE(plist.connectedPlayerUidsUtf8().find("user-123"), plist.connectedPlayerUidsUtf8().end());
+
+	const bool handled = plist.handlePubSubMessage("s3d-mbus:player-left", "user-123");
+	EXPECT_TRUE(handled);
+	EXPECT_EQ(plist.connectedPlayerUidsUtf8().find("user-123"), plist.connectedPlayerUidsUtf8().end());
+}
+
+TEST_F(PlayerListTest, HandlePubSubMessageReturnsFalseForUnknownChannel)
+{
+	MessageBus::detail::RedisConnection conn{ { .ip = U"127.0.0.1", .port = 6379 } };
+	MessageBus::detail::PlayerList plist{ {} };
+
+	ASSERT_TRUE(WaitForConnection(conn, 10s));
+	plist.onConnect(conn);
+	ASSERT_TRUE(WaitUntil(plist, conn, [&]() {
+		return plist.sessionStatus() == MessageBus::detail::PlayerList::SessionStatus::Active;
+	}, 5s));
+
+	const size_t sizeBefore = plist.connectedPlayerUidsUtf8().size();
+	const bool handled = plist.handlePubSubMessage("other-channel", "payload");
+	EXPECT_FALSE(handled);
+	EXPECT_EQ(plist.connectedPlayerUidsUtf8().size(), sizeBefore);
+}
+
 // connectedPlayerUidsUtf8
 
 TEST_F(PlayerListTest, ConnectedPlayerUidsUtf8IsEmptyBeforeConnect)
