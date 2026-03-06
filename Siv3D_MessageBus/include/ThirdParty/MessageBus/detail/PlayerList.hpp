@@ -58,6 +58,9 @@ namespace MessageBus::detail
 		[[nodiscard]]
 		const std::vector<std::string>& removedPlayerUidsUtf8() const noexcept { return m_removedPlayerUidsUtf8; }
 
+		[[nodiscard]]
+		bool isReady() const noexcept { return m_isReady; }
+
 	private:
 
 		Options m_options;
@@ -81,6 +84,8 @@ namespace MessageBus::detail
 		bool m_refreshInFlight;
 
 		s3d::Stopwatch m_timeSinceLastRefresh;
+
+		bool m_isReady = false;
 
 		[[nodiscard]]
 		static std::string generateUidUtf8();

@@ -102,6 +102,7 @@ namespace MessageBus::detail
 
 	void PlayerList::onDisconnect()
 	{
+		m_isReady = false;
 		m_timeSinceUpdate.reset();
 		m_sessionUpdateInFlight = false;
 		m_sessionStatus = SessionStatus::InactiveOrExpired;
@@ -346,6 +347,8 @@ namespace MessageBus::detail
 		{
 			return;
 		}
+
+		self->m_isReady = true;
 
 		self->m_connectedPlayerUidsUtf8.clear();
 		self->m_connectedPlayerUidsUtf8.reserve(static_cast<size_t>(reply->elements));

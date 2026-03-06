@@ -524,6 +524,45 @@ TEST_F(PlayerListTest, ConnectedPlayerUidsUtf8IsEmptyAfterOnDisconnect)
 	EXPECT_TRUE(plist.connectedPlayerUidsUtf8().empty());
 }
 
+// isReady
+
+TEST_F(PlayerListTest, IsReadyIsFalseBeforeFirstKeysResponse)
+{
+	MessageBus::detail::PlayerList plist{ {} };
+	EXPECT_FALSE(plist.isReady());
+}
+
+TEST_F(PlayerListTest, IsReadyIsTrueAfterFirstKeysResponse)
+{
+	MessageBus::detail::RedisConnection conn{ { .ip = U"127.0.0.1", .port = 6379 } };
+	MessageBus::detail::PlayerList plist{ {
+		.sessionTtlMs = 5000,
+		.playerListPollInterval = 100ms,
+	} };
+
+	ASSERT_TRUE(WaitForConnection(conn, 10s));
+	plist.onConnect(conn);
+
+	ASSERT_TRUE(WaitUntil(plist, conn, [&]() { return plist.isReady(); }, 5s));
+	EXPECT_TRUE(plist.isReady());
+}
+
+TEST_F(PlayerListTest, IsReadyIsFalseAfterOnDisconnect)
+{
+	MessageBus::detail::RedisConnection conn{ { .ip = U"127.0.0.1", .port = 6379 } };
+	MessageBus::detail::PlayerList plist{ {
+		.sessionTtlMs = 5000,
+		.playerListPollInterval = 100ms,
+	} };
+
+	ASSERT_TRUE(WaitForConnection(conn, 10s));
+	plist.onConnect(conn);
+	ASSERT_TRUE(WaitUntil(plist, conn, [&]() { return plist.isReady(); }, 5s));
+
+	plist.onDisconnect();
+	EXPECT_FALSE(plist.isReady());
+}
+
 // afterTick
 
 TEST_F(PlayerListTest, AfterTickReportsEmptyAddedAndRemovedWhenUnchanged)
