@@ -4,6 +4,7 @@
 #include "MessageBus/detail/RedisConnection.hpp"
 #include "MessageBus/SharedVariable.hpp"
 #include "MessageBus/detail/SharedVariableImpl.hpp"
+#include "MessageBus/detail/PlayerList.hpp"
 #include <Siv3D/Logger.hpp>
 #include <Siv3D/Unicode.hpp>
 #include <Siv3D/HashTable.hpp>
@@ -52,6 +53,8 @@ namespace MessageBus
 
 		s3d::HashTable<std::string, std::shared_ptr<detail::SharedVariableImpl>> variables;
 
+		detail::PlayerList playerList{{ }};
+
 		Impl() = default;
 
 		Impl(s3d::StringView ip, s3d::uint16 port, s3d::Optional<s3d::StringView> password)
@@ -70,10 +73,12 @@ namespace MessageBus
 				.onReady = [this](redisAsyncContext* context) {
 					syncSubscriptions(context);
 					syncVariables(context);
+					playerList.onConnect(*conn);
 				},
 				.onDisconnect = [this]() {
 					markAllUnsubscribed();
 					resetAllVariables();
+					playerList.onDisconnect();
 				},
 				.onInvalidate = [this](redisAsyncContext* context, const s3d::Array<std::string>& keys) {
 					handleInvalidate(context, keys);
@@ -111,6 +116,11 @@ namespace MessageBus
 
 			// メッセージのみ処理
 			if (kind != "message")
+			{
+				return;
+			}
+
+			if (self->playerList.handlePubSubMessage(channelName, payload))
 			{
 				return;
 			}
@@ -343,6 +353,7 @@ namespace MessageBus
 			return;
 		}
 
+		m_impl->playerList.beforeDisconnect(*m_impl->conn);
 		m_impl->conn->disconnect();
 	}
 
@@ -386,7 +397,9 @@ namespace MessageBus
 			m_impl->syncVariables(m_impl->conn->context());
 		}
 
+		m_impl->playerList.beforeTick(*m_impl->conn);
 		m_impl->conn->tick();
+		m_impl->playerList.afterTick();
 	}
 
 	bool MessageBus::isConnected() const
