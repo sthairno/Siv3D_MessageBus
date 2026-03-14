@@ -55,6 +55,10 @@ namespace MessageBus
 
 		detail::PlayerList playerList{{ }};
 
+		String playerIdUtf32;
+
+		Array<String> playerListUtf32;
+
 		Impl() = default;
 
 		Impl(s3d::StringView ip, s3d::uint16 port, s3d::Optional<s3d::StringView> password)
@@ -84,6 +88,19 @@ namespace MessageBus
 					handleInvalidate(context, keys);
 				}
 			});
+		}
+
+		void syncPlayerList()
+		{
+			const auto& src = playerList.connectedPlayerUidsUtf8();
+			auto& dst = playerListUtf32;
+
+			dst.clear();
+			dst.reserve(src.size());
+			for (std::string_view utf8 : src)
+			{
+				dst.push_back(Unicode::FromUTF8(utf8));
+			}
 		}
 
 		void clearEventsBuffer()
@@ -374,7 +391,9 @@ namespace MessageBus
 		while (m_impl->conn->state() != detail::RedisConnectionState::Disconnected)
 		{
 			std::this_thread::yield();
+			m_impl->playerList.beforeTick(*m_impl->conn);
 			m_impl->conn->tick();
+			m_impl->playerList.afterTick();
 		}
 	}
 
@@ -400,6 +419,12 @@ namespace MessageBus
 		m_impl->playerList.beforeTick(*m_impl->conn);
 		m_impl->conn->tick();
 		m_impl->playerList.afterTick();
+
+		if (!m_impl->playerList.addedPlayerUidsUtf8().empty() ||
+			!m_impl->playerList.removedPlayerUidsUtf8().empty())
+		{
+			m_impl->syncPlayerList();
+		}
 	}
 
 	bool MessageBus::isConnected() const
@@ -502,4 +527,20 @@ namespace MessageBus
 	template SharedVariable<bool> MessageBus::variable<bool>(s3d::StringView, const bool&);
 	template SharedVariable<String> MessageBus::variable<String>(s3d::StringView, const String&);
 	template SharedVariable<JSON> MessageBus::variable<JSON>(s3d::StringView, const JSON&);
+
+	const String& MessageBus::id() const
+	{
+		if (not m_impl->playerIdUtf32.empty())
+		{
+			return m_impl->playerIdUtf32;
+		}
+
+		m_impl->playerIdUtf32 = Unicode::FromUTF8(m_impl->playerList.uidUtf8());
+		return m_impl->playerIdUtf32;
+	}
+
+	const Array<String>& MessageBus::onlineIdList() const
+	{
+		return m_impl->playerListUtf32;
+	}
 }
