@@ -187,3 +187,39 @@ You are a senior C++ developer with expertise in modern C++ (C++20), STL, and sy
 - Document assumptions, constraints, and expected behavior of code.
 
 Follow the official ISO C++ standards and guidelines for best practices in modern C++ development.
+
+## Cursor Cloud specific instructions
+
+### Environment overview
+
+- OS: Ubuntu 24.04 (x64), running inside a Firecracker VM
+- `VCPKG_ROOT=/opt/vcpkg` is set in `~/.bashrc`
+- Siv3D SDK 0.6.16 is installed via deb at `/usr/local`
+- Docker is installed; the daemon must be started before running tests (see below)
+
+### Starting Docker (required for tests)
+
+Tests use `boost::process` to launch Redis containers (`redis:7-alpine`, `redis:5-alpine`). Before running tests:
+
+```bash
+sudo dockerd &>/tmp/dockerd.log &
+sleep 3
+sudo chmod 666 /var/run/docker.sock
+```
+
+Both `redis:7-alpine` and `redis:5-alpine` images should already be cached locally.
+
+### Build and test (Linux)
+
+All commands run from `Siv3D_MessageBus/` directory. See the "Build commands" and "Testing instructions" sections above for full details.
+
+```bash
+python3 scripts/build.py Siv3D_MessageBus Debug   # build library
+python3 scripts/build.py Test Debug                # build tests (also builds library)
+python3 scripts/test.py Debug                      # run tests
+```
+
+### Known test caveats
+
+- `RedisConnectionBasic.InvalidHost` may fail in containerized environments because `192.0.2.1` (TEST-NET-1) does not reliably time out. This is an environment-specific networking behavior, not a code bug. 59/60 tests should pass.
+- ALSA and JACK audio warnings in test output are harmless (headless environment has no sound card).
