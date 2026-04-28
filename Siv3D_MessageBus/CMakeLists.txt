@@ -52,6 +52,7 @@ add_library(siv3d-messagebus STATIC
     src/SharedVariable.cpp
     src/SharedVariableImpl.cpp
     src/TypeMismatchError.cpp
+    src/VariableWorker.cpp
 )
 add_library(siv3d-messagebus::siv3d-messagebus ALIAS siv3d-messagebus)
 

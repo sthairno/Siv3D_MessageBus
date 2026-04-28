@@ -142,6 +142,7 @@
     <ClCompile Include="src\SharedVariableImpl.cpp" />
     <ClCompile Include="src\generated\HiredisLicense.cpp" />
     <ClCompile Include="src\TypeMismatchError.cpp" />
+    <ClCompile Include="src\VariableWorker.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

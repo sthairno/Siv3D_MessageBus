@@ -5,6 +5,7 @@
 #include "MessageBus/SharedVariable.hpp"
 #include "MessageBus/detail/SharedVariableImpl.hpp"
 #include "MessageBus/detail/PlayerList.hpp"
+#include "MessageBus/detail/VariableWorker.hpp"
 #include <Siv3D/Logger.hpp>
 #include <Siv3D/Unicode.hpp>
 #include <Siv3D/HashTable.hpp>
@@ -51,9 +52,8 @@ namespace MessageBus
 
 		s3d::Array<MessageBus::Event> eventsBuf;
 
-		s3d::HashTable<std::string, std::shared_ptr<detail::SharedVariableImpl>> variables;
-
 		detail::PlayerList playerList{{ }};
+		detail::VariableWorker variableWorker;
 
 		String playerIdUtf32;
 
@@ -66,6 +66,11 @@ namespace MessageBus
 			createConnection(ip, port, password);
 		}
 
+		~Impl()
+		{
+			conn.reset();
+		}
+
 		void createConnection(s3d::StringView ip, s3d::uint16 port, s3d::Optional<s3d::StringView> password)
 		{
 			conn = std::make_unique<detail::RedisConnection>(detail::RedisConnectionOptions{
@@ -76,16 +81,16 @@ namespace MessageBus
 				.onConnect = nullptr,
 				.onReady = [this](redisAsyncContext* context) {
 					syncSubscriptions(context);
-					syncVariables(context);
 					playerList.onConnect(*conn);
+					variableWorker.onConnect(*conn);
 				},
 				.onDisconnect = [this]() {
 					markAllUnsubscribed();
-					resetAllVariables();
 					playerList.onDisconnect();
+					variableWorker.onDisconnect();
 				},
 				.onInvalidate = [this](redisAsyncContext* context, const s3d::Array<std::string>& keys) {
-					handleInvalidate(context, keys);
+					variableWorker.onInvalidate(context, keys);
 				}
 			});
 		}
@@ -138,6 +143,11 @@ namespace MessageBus
 			}
 
 			if (self->playerList.handlePubSubMessage(channelName, payload))
+			{
+				return;
+			}
+			
+			if (self->variableWorker.handlePubSubMessage(channelName, payload))
 			{
 				return;
 			}
@@ -207,37 +217,6 @@ namespace MessageBus
 				st.remote = st.desired;
 			}
 			channelsDirty = false;
-		}
-
-		void resetAllVariables()
-		{
-			for (auto& [name, varImpl] : variables)
-			{
-				varImpl->reset();
-			}
-		}
-
-		void syncVariables(redisAsyncContext* context)
-		{
-			for (auto& [name, varImpl] : variables)
-			{
-				varImpl->syncToRemote(context);
-			}
-		}
-
-		void handleInvalidate(redisAsyncContext* context, const s3d::Array<std::string>& keys)
-		{
-			if (!context) return;
-
-			for (const auto& key : keys)
-			{
-				auto varItr = variables.find(key);
-				if (varItr != variables.end())
-				{
-					Logger << U"[MessageBus][DEBUG] Invalidated key found, refreshing: " << Unicode::FromUTF8(key);
-					varItr->second->fetchFromRemote(context);
-				}
-			}
 		}
 
 		static void onPublishCallback(redisAsyncContext*, redisReply* reply, Impl*)
@@ -371,6 +350,7 @@ namespace MessageBus
 		}
 
 		m_impl->playerList.beforeDisconnect(*m_impl->conn);
+		m_impl->variableWorker.beforeDisconnect(*m_impl->conn);
 		m_impl->conn->disconnect();
 	}
 
@@ -392,8 +372,10 @@ namespace MessageBus
 		{
 			std::this_thread::yield();
 			m_impl->playerList.beforeTick(*m_impl->conn);
+			m_impl->variableWorker.beforeTick(*m_impl->conn);
 			m_impl->conn->tick();
 			m_impl->playerList.afterTick();
+			m_impl->variableWorker.afterTick();
 		}
 	}
 
@@ -413,12 +395,13 @@ namespace MessageBus
 			{
 				m_impl->syncSubscriptions(m_impl->conn->context());
 			}
-			m_impl->syncVariables(m_impl->conn->context());
 		}
 
 		m_impl->playerList.beforeTick(*m_impl->conn);
+		m_impl->variableWorker.beforeTick(*m_impl->conn);
 		m_impl->conn->tick();
 		m_impl->playerList.afterTick();
+		m_impl->variableWorker.afterTick();
 
 		if (!m_impl->playerList.addedPlayerUidsUtf8().empty() ||
 			!m_impl->playerList.removedPlayerUidsUtf8().empty())
@@ -503,22 +486,9 @@ namespace MessageBus
 		}
 
 		const std::string u8name = Unicode::ToUTF8(name);
-		auto& variables = m_impl->variables;
-		auto varItr = variables.find(u8name);
-		if (varItr != variables.end())
-		{
-			// 既存の変数を返す
-			return SharedVariable<Type>(varItr->second);
-		}
-
-		// 新しい変数を作成
 		const JSON initialJson(defaultValue);
-		auto varImpl = std::make_shared<detail::SharedVariableImpl>(u8name, name, initialJson);
-		variables.emplace(u8name, varImpl);
-
-		Logger << U"[MessageBus][INFO] variable created: " << name;
-
-		return SharedVariable<Type>(varImpl);
+		auto varImpl = m_impl->variableWorker.getOrCreateVariable(u8name, name, initialJson);
+		return varImpl->asSharedVariable<Type>();
 	}
 
 	// 明示的インスタンス化

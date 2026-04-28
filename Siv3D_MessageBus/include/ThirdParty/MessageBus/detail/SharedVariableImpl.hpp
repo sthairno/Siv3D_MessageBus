@@ -1,5 +1,7 @@
 #pragma once
 
+#include "MessageBus/SharedVariable.hpp"
+
 #include <Siv3D/JSON.hpp>
 #include <Siv3D/DateTime.hpp>
 #include <string>
@@ -67,6 +69,14 @@ namespace MessageBus::detail
 		/// @return 最終更新日時
 		[[nodiscard]]
 		s3d::DateTime updatedAt() const { return m_updatedAt; }
+
+		/// @brief この実装を参照する SharedVariable を作成します
+		template<class Type>
+		[[nodiscard]]
+		SharedVariable<Type> asSharedVariable()
+		{
+			return SharedVariable<Type>(shared_from_this());
+		}
 
 		/// @brief 変数の状態を確認して必要に応じて Redis に送信します
 		/// @param context Redis 非同期コンテキスト
