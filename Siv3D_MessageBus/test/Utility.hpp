@@ -1,6 +1,7 @@
 #pragma once
 #include <MessageBus/detail/PlayerList.hpp>
 #include <MessageBus/detail/RedisConnection.hpp>
+#include <MessageBus/detail/VariableWorker.hpp>
 #include <MessageBus/MessageBus.hpp>
 
 static constexpr auto TICK_INTERVAL = 20ms;
@@ -57,6 +58,19 @@ static void Sleep(MessageBus::detail::PlayerList& plist, MessageBus::detail::Red
 	}
 }
 
+// 一定時間 tick を回す（VariableWorker + RedisConnection 用）
+static void Sleep(MessageBus::detail::VariableWorker& worker, MessageBus::detail::RedisConnection& conn, Duration time)
+{
+	Stopwatch sw{ StartImmediately::Yes };
+	while (sw < time)
+	{
+		worker.beforeTick(conn);
+		conn.tick();
+		worker.afterTick();
+		System::Sleep(TICK_INTERVAL);
+	}
+}
+
 // 条件が満たされるまで待機（RedisConnection 用）
 template <class Pred>
 static bool WaitUntil(MessageBus::detail::RedisConnection& conn, Pred&& predicate, Duration timeout = 5s)
@@ -65,6 +79,21 @@ static bool WaitUntil(MessageBus::detail::RedisConnection& conn, Pred&& predicat
 	while (sw < timeout && !predicate())
 	{
 		conn.tick();
+		System::Sleep(TICK_INTERVAL);
+	}
+	return predicate();
+}
+
+// 条件が満たされるまで待機（VariableWorker + RedisConnection 用）
+template <class Pred>
+static bool WaitUntil(MessageBus::detail::VariableWorker& worker, MessageBus::detail::RedisConnection& conn, Pred&& predicate, Duration timeout = 5s)
+{
+	Stopwatch sw{ StartImmediately::Yes };
+	while (sw < timeout && !predicate())
+	{
+		worker.beforeTick(conn);
+		conn.tick();
+		worker.afterTick();
 		System::Sleep(TICK_INTERVAL);
 	}
 	return predicate();

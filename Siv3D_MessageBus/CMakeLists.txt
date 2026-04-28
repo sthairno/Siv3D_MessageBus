@@ -217,6 +217,7 @@ if(SIV3D_MESSAGEBUS_BUILD_TESTS)
         test/RedisConnectionPushTest.cpp
         test/RedisConnectionTest.cpp
         test/SharedVariableTest.cpp
+        test/VariableWorkerTest.cpp
     )
     target_include_directories(siv3d-messagebus-tests
         PRIVATE

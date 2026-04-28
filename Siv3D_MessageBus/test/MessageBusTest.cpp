@@ -449,17 +449,6 @@ TEST_F(MessageBusEmptyConstructor, EmitReturnsFalseWithoutConnection)
 	EXPECT_FALSE(bus.emit(U"test_channel", UR"({ "k": 1 })"_json));
 }
 
-TEST_F(MessageBusEmptyConstructor, VariableWorksWithoutConnection)
-{
-	MessageBus::MessageBus bus;
-	// connが空でもvariable()は動作する（変数は作成可能）
-	auto var1 = bus.variable<int32>(U"test_var", 42);
-	EXPECT_EQ(var1.get(), 42);
-
-	auto var2 = bus.variable<String>(U"test_string", U"hello");
-	EXPECT_EQ(var2.get(), U"hello");
-}
-
 TEST_F(MessageBusEmptyConstructor, EventsBufferIsEmpty)
 {
 	MessageBus::MessageBus bus;
