@@ -40,6 +40,7 @@ namespace MessageBus::detail
 
 	void SubscriptionWorker::onDisconnect()
 	{
+		m_subscribeAckReceived = false;
 		markAllUnsubscribed();
 	}
 
@@ -129,27 +130,27 @@ namespace MessageBus::detail
 			kindElem->type != REDIS_REPLY_STRING ||
 			!channelElem ||
 			channelElem->type != REDIS_REPLY_STRING ||
-			!payloadElem ||
-			payloadElem->type != REDIS_REPLY_STRING)
+			!payloadElem)
 		{
 			return;
 		}
 
 		const std::string_view kind{ kindElem->str, kindElem->len };
 		const std::string_view channelName{ channelElem->str, channelElem->len };
-		const std::string_view payload{ payloadElem->str, payloadElem->len };
-		if (kind != "message")
-		{
-			return;
-		}
 
-		if (self->m_externalPubSubMessageHandler &&
-			self->m_externalPubSubMessageHandler(channelName, payload))
+		if (kind == "subscribe")
 		{
-			return;
-		}
+			self->m_subscribeAckReceived = true;
+		} else if (kind == "message" && payloadElem->type == REDIS_REPLY_STRING) {
+			const std::string_view payload{ payloadElem->str, payloadElem->len };
 
-		self->handlePubSubMessage(channelName, payload);
+			if (self->m_externalPubSubMessageHandler &&
+				self->m_externalPubSubMessageHandler(channelName, payload))
+			{
+				return;
+			}
+			self->handlePubSubMessage(channelName, payload);
+		}
 	}
 
 	void SubscriptionWorker::markAllUnsubscribed()
@@ -181,6 +182,9 @@ namespace MessageBus::detail
 				unsubscribeCommand.push_back(key);
 			}
 		}
+
+		// 購読対象が無い場合、Redis から subscribe ACK は来ないため ready 扱いにする
+		m_subscribeAckReceived |= (subscribeCommand.size() == 1);
 
 		auto sendCommand = [this](redisAsyncContext* context, redisCallbackFn* callback, const std::vector<std::string_view>& args) {
 			if (args.size() == 1)

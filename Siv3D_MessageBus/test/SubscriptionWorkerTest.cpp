@@ -136,6 +136,106 @@ TEST_F(SubscriptionWorkerEvents, SubscribeAfterConnection)
 	EXPECT_EQ(events[0].value[U"k"].get<int32>(), 1);
 }
 
+TEST_F(SubscriptionWorkerEvents, IsReadyAfterSubscribeBeforeConnection)
+{
+	MessageBus::detail::SubscriptionWorker worker;
+	ASSERT_TRUE(worker.subscribe(U"t_ready"));
+
+	MessageBus::detail::RedisConnection conn{ {
+		.ip = U"127.0.0.1",
+		.port = 6379,
+		.password = none,
+		.heartbeatInterval = 1s,
+		.onReady = [&](redisAsyncContext*) {
+			worker.onConnect(conn);
+		},
+		.onDisconnect = [&]() {
+			worker.onDisconnect();
+		},
+	} };
+	ASSERT_TRUE(WaitForConnection(conn, 10s));
+
+	EXPECT_TRUE(WaitUntil(worker, conn, [&] { return worker.isReady(); }, 5s));
+}
+
+TEST_F(SubscriptionWorkerEvents, IsReadyWithNoSubscriptions)
+{
+	MessageBus::detail::SubscriptionWorker worker;
+
+	MessageBus::detail::RedisConnection conn{ {
+		.ip = U"127.0.0.1",
+		.port = 6379,
+		.password = none,
+		.heartbeatInterval = 1s,
+		.onReady = [&](redisAsyncContext*) {
+			worker.onConnect(conn);
+		},
+		.onDisconnect = [&]() {
+			worker.onDisconnect();
+		},
+	} };
+	ASSERT_TRUE(WaitForConnection(conn, 10s));
+
+	// 初期セットアップ完了後は購読0でも ready 扱い
+	EXPECT_TRUE(WaitUntil(worker, conn, [&] { return worker.isReady(); }, 1s));
+}
+
+TEST_F(SubscriptionWorkerEvents, IsReadyStaysTrueAfterSubscribeUnsubscribe)
+{
+	MessageBus::detail::SubscriptionWorker worker;
+	ASSERT_TRUE(worker.subscribe(U"t_init"));
+
+	MessageBus::detail::RedisConnection conn{ {
+		.ip = U"127.0.0.1",
+		.port = 6379,
+		.password = none,
+		.heartbeatInterval = 1s,
+		.onReady = [&](redisAsyncContext*) {
+			worker.onConnect(conn);
+		},
+		.onDisconnect = [&]() {
+			worker.onDisconnect();
+		},
+	} };
+	ASSERT_TRUE(WaitForConnection(conn, 10s));
+	ASSERT_TRUE(WaitUntil(worker, conn, [&] { return worker.isReady(); }, 5s));
+
+	ASSERT_TRUE(worker.subscribe(U"t_new"));
+	Sleep(worker, conn, 0.5s);
+	EXPECT_TRUE(worker.isReady());
+
+	ASSERT_TRUE(worker.unsubscribe(U"t_new"));
+	Sleep(worker, conn, 0.5s);
+	EXPECT_TRUE(worker.isReady());
+}
+
+TEST_F(SubscriptionWorkerEvents, IsReadyResetsOnDisconnect)
+{
+	MessageBus::detail::SubscriptionWorker worker;
+	ASSERT_TRUE(worker.subscribe(U"t_disc"));
+
+	MessageBus::detail::RedisConnection conn{ {
+		.ip = U"127.0.0.1",
+		.port = 6379,
+		.password = none,
+		.heartbeatInterval = 1s,
+		.onReady = [&](redisAsyncContext*) {
+			worker.onConnect(conn);
+		},
+		.onDisconnect = [&]() {
+			worker.onDisconnect();
+		},
+	} };
+	ASSERT_TRUE(WaitForConnection(conn, 10s));
+	ASSERT_TRUE(WaitUntil(worker, conn, [&] { return worker.isReady(); }, 5s));
+
+	StopContainer();
+	ASSERT_TRUE(WaitForState(conn, MessageBus::detail::RedisConnectionState::Disconnected, 30s));
+	EXPECT_FALSE(worker.isReady());
+
+	StartContainer();
+}
+
 TEST_F(SubscriptionWorkerEvents, ReceiveMultipleEvents)
 {
 	MessageBus::detail::SubscriptionWorker worker;

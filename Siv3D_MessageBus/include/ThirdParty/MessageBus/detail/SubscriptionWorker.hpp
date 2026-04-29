@@ -49,6 +49,9 @@ namespace MessageBus::detail
 		[[nodiscard]]
 		const s3d::Array<MessageBus::Event>& events() const noexcept { return m_eventsBuf; }
 
+		[[nodiscard]]
+		bool isReady() const noexcept { return m_subscribeAckReceived; }
+
 	private:
 		struct ChannelState
 		{
@@ -60,6 +63,7 @@ namespace MessageBus::detail
 		bool m_channelsDirty = false;
 		s3d::Array<MessageBus::Event> m_eventsBuf;
 		PubSubMessageHandler m_externalPubSubMessageHandler;
+		bool m_subscribeAckReceived = false;
 
 		static void onSubscriptionMessageReceive(redisAsyncContext* context, redisReply* reply, SubscriptionWorker* self);
 
