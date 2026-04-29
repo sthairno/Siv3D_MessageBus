@@ -127,6 +127,7 @@
     <ClCompile Include="test\RedisConnectionTest.cpp" />
     <ClCompile Include="test\RedisConnectionPushTest.cpp" />
     <ClCompile Include="test\SharedVariableTest.cpp" />
+    <ClCompile Include="test\SubscriptionWorkerTest.cpp" />
     <ClCompile Include="test\VariableWorkerTest.cpp" />
   </ItemGroup>
   <ItemGroup>

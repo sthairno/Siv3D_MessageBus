@@ -1,6 +1,7 @@
 #pragma once
 #include <MessageBus/detail/PlayerList.hpp>
 #include <MessageBus/detail/RedisConnection.hpp>
+#include <MessageBus/detail/SubscriptionWorker.hpp>
 #include <MessageBus/detail/VariableWorker.hpp>
 #include <MessageBus/MessageBus.hpp>
 
@@ -71,6 +72,19 @@ static void Sleep(MessageBus::detail::VariableWorker& worker, MessageBus::detail
 	}
 }
 
+// 一定時間 tick を回す（SubscriptionWorker + RedisConnection 用）
+static void Sleep(MessageBus::detail::SubscriptionWorker& worker, MessageBus::detail::RedisConnection& conn, Duration time)
+{
+	Stopwatch sw{ StartImmediately::Yes };
+	while (sw < time)
+	{
+		worker.beforeTick(conn);
+		conn.tick();
+		worker.afterTick();
+		System::Sleep(TICK_INTERVAL);
+	}
+}
+
 // 条件が満たされるまで待機（RedisConnection 用）
 template <class Pred>
 static bool WaitUntil(MessageBus::detail::RedisConnection& conn, Pred&& predicate, Duration timeout = 5s)
@@ -87,6 +101,21 @@ static bool WaitUntil(MessageBus::detail::RedisConnection& conn, Pred&& predicat
 // 条件が満たされるまで待機（VariableWorker + RedisConnection 用）
 template <class Pred>
 static bool WaitUntil(MessageBus::detail::VariableWorker& worker, MessageBus::detail::RedisConnection& conn, Pred&& predicate, Duration timeout = 5s)
+{
+	Stopwatch sw{ StartImmediately::Yes };
+	while (sw < timeout && !predicate())
+	{
+		worker.beforeTick(conn);
+		conn.tick();
+		worker.afterTick();
+		System::Sleep(TICK_INTERVAL);
+	}
+	return predicate();
+}
+
+// 条件が満たされるまで待機（SubscriptionWorker + RedisConnection 用）
+template <class Pred>
+static bool WaitUntil(MessageBus::detail::SubscriptionWorker& worker, MessageBus::detail::RedisConnection& conn, Pred&& predicate, Duration timeout = 5s)
 {
 	Stopwatch sw{ StartImmediately::Yes };
 	while (sw < timeout && !predicate())
@@ -151,6 +180,12 @@ static bool WaitForEvent(MessageBus::MessageBus& bus, Duration timeout = 5s)
 		System::Sleep(TICK_INTERVAL);
 	}
 	return false;
+}
+
+// SubscriptionWorker の events 到着待機（条件を満たしたら true）
+static bool WaitForEvent(MessageBus::detail::SubscriptionWorker& worker, MessageBus::detail::RedisConnection& conn, Duration timeout = 5s)
+{
+	return WaitUntil(worker, conn, [&] { return !worker.events().isEmpty(); }, timeout);
 }
 
 static void Sleep(MessageBus::MessageBus& bus, Duration time)

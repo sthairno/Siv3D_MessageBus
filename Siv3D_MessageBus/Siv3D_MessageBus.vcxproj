@@ -140,6 +140,7 @@
     <ClCompile Include="src\RedisConnection.cpp" />
     <ClCompile Include="src\SharedVariable.cpp" />
     <ClCompile Include="src\SharedVariableImpl.cpp" />
+    <ClCompile Include="src\SubscriptionWorker.cpp" />
     <ClCompile Include="src\generated\HiredisLicense.cpp" />
     <ClCompile Include="src\TypeMismatchError.cpp" />
     <ClCompile Include="src\VariableWorker.cpp" />

@@ -5,10 +5,10 @@
 #include "MessageBus/SharedVariable.hpp"
 #include "MessageBus/detail/SharedVariableImpl.hpp"
 #include "MessageBus/detail/PlayerList.hpp"
+#include "MessageBus/detail/SubscriptionWorker.hpp"
 #include "MessageBus/detail/VariableWorker.hpp"
 #include <Siv3D/Logger.hpp>
 #include <Siv3D/Unicode.hpp>
-#include <Siv3D/HashTable.hpp>
 #include <Siv3D/FormatLiteral.hpp>
 #include <memory>
 #include <thread>
@@ -41,17 +41,7 @@ namespace MessageBus
 	{
 		std::unique_ptr<detail::RedisConnection> conn;
 
-		struct ChannelState
-		{
-			bool desired = false; // ユーザーの購読意図
-			bool remote = false;  // サーバー側で購読確定
-		};
-
-		s3d::HashTable<std::string, ChannelState> channels;
-		bool channelsDirty = false;
-
-		s3d::Array<MessageBus::Event> eventsBuf;
-
+		detail::SubscriptionWorker subscriptionWorker;
 		detail::PlayerList playerList{{ }};
 		detail::VariableWorker variableWorker;
 
@@ -59,16 +49,37 @@ namespace MessageBus
 
 		Array<String> playerListUtf32;
 
-		Impl() = default;
+		Impl()
+		{
+			setupSubscriptionWorker();
+		}
 
 		Impl(s3d::StringView ip, s3d::uint16 port, s3d::Optional<s3d::StringView> password)
 		{
+			setupSubscriptionWorker();
 			createConnection(ip, port, password);
 		}
 
 		~Impl()
 		{
 			conn.reset();
+		}
+
+		void setupSubscriptionWorker()
+		{
+			subscriptionWorker.setPubSubMessageHandler([this](std::string_view channel, std::string_view payload) {
+				if (playerList.handlePubSubMessage(channel, payload))
+				{
+					return true;
+				}
+
+				if (variableWorker.handlePubSubMessage(channel, payload))
+				{
+					return true;
+				}
+
+				return false;
+			});
 		}
 
 		void createConnection(s3d::StringView ip, s3d::uint16 port, s3d::Optional<s3d::StringView> password)
@@ -79,13 +90,13 @@ namespace MessageBus
 				.password = password,
 				.heartbeatInterval = s3d::Seconds{ 10 },
 				.onConnect = nullptr,
-				.onReady = [this](redisAsyncContext* context) {
-					syncSubscriptions(context);
+				.onReady = [this](redisAsyncContext*) {
+					subscriptionWorker.onConnect(*conn);
 					playerList.onConnect(*conn);
 					variableWorker.onConnect(*conn);
 				},
 				.onDisconnect = [this]() {
-					markAllUnsubscribed();
+					subscriptionWorker.onDisconnect();
 					playerList.onDisconnect();
 					variableWorker.onDisconnect();
 				},
@@ -106,117 +117,6 @@ namespace MessageBus
 			{
 				dst.push_back(Unicode::FromUTF8(utf8));
 			}
-		}
-
-		void clearEventsBuffer()
-		{
-			eventsBuf.clear();
-		}
-
-		static void onSubscriptionMessageReceive(redisAsyncContext*, redisReply* reply, Impl* self)
-		{
-			// 事前条件チェック
-			if (!reply || reply->type != REDIS_REPLY_PUSH || reply->elements < 3) return;
-
-			// 型チェック
-			redisReply* kindElem = reply->element[0];
-			redisReply* channelElem = reply->element[1];
-			redisReply* payloadElem = reply->element[2];
-			if (!kindElem ||
-				kindElem->type != REDIS_REPLY_STRING ||
-				!channelElem ||
-				channelElem->type != REDIS_REPLY_STRING ||
-				!payloadElem ||
-				payloadElem->type != REDIS_REPLY_STRING)
-			{
-				return;
-			}
-
-			const std::string_view kind{ kindElem->str, kindElem->len };
-			const std::string_view channelName{ channelElem->str, channelElem->len };
-			const std::string_view payload{ payloadElem->str, payloadElem->len };
-
-			// メッセージのみ処理
-			if (kind != "message")
-			{
-				return;
-			}
-
-			if (self->playerList.handlePubSubMessage(channelName, payload))
-			{
-				return;
-			}
-			
-			if (self->variableWorker.handlePubSubMessage(channelName, payload))
-			{
-				return;
-			}
-
-			// 購読中のチャンネルのみ処理
-			auto channelItr = self->channels.find(channelName);
-			if (channelItr == self->channels.end() ||
-				!channelItr->second.desired)
-			{
-				return;
-			}
-
-			// イベントバッファに追加（空/失敗時は Invalid）
-			self->eventsBuf.emplace_back(MessageBus::Event{
-				.channel = Unicode::FromUTF8(channelName),
-				.value = payload.empty() ? JSON::Invalid() : JSON::Parse(Unicode::FromUTF8(payload))
-			});
-		}
-
-		void markAllUnsubscribed()
-		{
-			for (auto& [key, st] : channels)
-			{
-				st.remote = false;
-			}
-			channelsDirty = true;
-		}
-
-		void syncSubscriptions(redisAsyncContext* context)
-		{
-			if (!context) return;
-
-			// コマンド構築
-			std::vector<std::string_view> subscribeCommand{ {"SUBSCRIBE"} };
-			std::vector<std::string_view> unsubscribeCommand{ {"UNSUBSCRIBE"} };
-			for (const auto& [key, st] : channels)
-			{
-				if (st.desired && !st.remote)
-				{
-					subscribeCommand.push_back(key);
-				}
-				if (!st.desired && st.remote)
-				{
-					unsubscribeCommand.push_back(key);
-				}
-			}
-
-			// コマンド送信
-			auto sendCommand = [&, this](redisAsyncContext* context, redisCallbackFn* callback, const std::vector<std::string_view>& args) {
-				if (args.size() == 1) return;
-				const int argc = static_cast<int>(args.size());
-				std::vector<const char*> argv(argc);
-				std::vector<size_t> argvlen(argc);
-				for (size_t i = 0; i < args.size(); ++i)
-				{
-					argv[i] = args[i].data();
-					argvlen[i] = args[i].size();
-				}
-				redisAsyncCommandArgv(context, callback, this, argc, argv.data(), argvlen.data());
-				};
-			sendCommand(context, reinterpret_cast<redisCallbackFn*>(Impl::onSubscriptionMessageReceive), subscribeCommand);
-			sendCommand(context, nullptr, unsubscribeCommand); // 失敗しても購読していないイベントはフィルターできるため無視
-
-			// 状態を最新の状態に更新
-			for (auto& [key, st] : channels)
-			{
-				st.remote = st.desired;
-			}
-			channelsDirty = false;
 		}
 
 		static void onPublishCallback(redisAsyncContext*, redisReply* reply, Impl*)
@@ -270,54 +170,6 @@ namespace MessageBus
 			return (rc == REDIS_OK);
 		}
 
-		bool subscribe(StringView channel)
-		{
-			// 購読している→成功
-			// 購読していない→成功
-
-			auto u8channel = Unicode::ToUTF8(channel);
-			auto channelItr = channels.find(u8channel);
-			if (channelItr == channels.end())
-			{
-				channels.emplace(
-					u8channel,
-					ChannelState{
-						.desired = true,
-						.remote = false
-					}
-				);
-				channelsDirty = true;
-			}
-			else
-			{
-				channelsDirty |= channelItr->second.desired == false;
-				channelItr->second.desired = true;
-			}
-
-			return true;
-		}
-
-		bool unsubscribe(StringView channel)
-		{
-			// 購読している→成功
-			// 購読していない→失敗
-
-			auto u8channel = Unicode::ToUTF8(channel);
-			auto channelItr = channels.find(u8channel);
-			if (channelItr == channels.end())
-			{
-				return false;
-			}
-
-			if (not channelItr->second.desired)
-			{
-				return false;
-			}
-
-			channelsDirty = true;
-			channelItr->second.desired = false;
-			return true;
-		}
 	};
 
 	MessageBus::MessageBus()
@@ -349,6 +201,7 @@ namespace MessageBus
 			return;
 		}
 
+		m_impl->subscriptionWorker.beforeDisconnect(*m_impl->conn);
 		m_impl->playerList.beforeDisconnect(*m_impl->conn);
 		m_impl->variableWorker.beforeDisconnect(*m_impl->conn);
 		m_impl->conn->disconnect();
@@ -371,9 +224,11 @@ namespace MessageBus
 		while (m_impl->conn->state() != detail::RedisConnectionState::Disconnected)
 		{
 			std::this_thread::yield();
+			m_impl->subscriptionWorker.beforeTick(*m_impl->conn);
 			m_impl->playerList.beforeTick(*m_impl->conn);
 			m_impl->variableWorker.beforeTick(*m_impl->conn);
 			m_impl->conn->tick();
+			m_impl->subscriptionWorker.afterTick();
 			m_impl->playerList.afterTick();
 			m_impl->variableWorker.afterTick();
 		}
@@ -381,25 +236,18 @@ namespace MessageBus
 
 	void MessageBus::update()
 	{
-		m_impl->clearEventsBuffer();
+		m_impl->subscriptionWorker.clearEventsBuffer();
 
 		if (!m_impl->conn)
 		{
 			return;
 		}
 
-		// conn.tick の直前に差分バッチ送信
-		if (m_impl->conn->state() == detail::RedisConnectionState::Connected)
-		{
-			if (m_impl->channelsDirty)
-			{
-				m_impl->syncSubscriptions(m_impl->conn->context());
-			}
-		}
-
+		m_impl->subscriptionWorker.beforeTick(*m_impl->conn);
 		m_impl->playerList.beforeTick(*m_impl->conn);
 		m_impl->variableWorker.beforeTick(*m_impl->conn);
 		m_impl->conn->tick();
+		m_impl->subscriptionWorker.afterTick();
 		m_impl->playerList.afterTick();
 		m_impl->variableWorker.afterTick();
 
@@ -446,7 +294,7 @@ namespace MessageBus
 			throw InvalidNameError(UR"(Invalid channel name: "{0}")"_fmt(channel));
 		}
 
-		return m_impl->subscribe(channel);
+		return m_impl->subscriptionWorker.subscribe(channel);
 	}
 
 	bool MessageBus::unsubscribe(s3d::StringView channel)
@@ -457,12 +305,12 @@ namespace MessageBus
 			throw InvalidNameError(UR"(Invalid channel name: "{0}")"_fmt(channel));
 		}
 
-		return m_impl->unsubscribe(channel);
+		return m_impl->subscriptionWorker.unsubscribe(channel);
 	}
 
 	const s3d::Array<MessageBus::Event>& MessageBus::events() const
 	{
-		return m_impl->eventsBuf;
+		return m_impl->subscriptionWorker.events();
 	}
 
 	bool MessageBus::emit(s3d::StringView channel, s3d::Optional<s3d::JSON> payload)

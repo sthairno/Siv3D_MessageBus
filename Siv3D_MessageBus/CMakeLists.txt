@@ -51,6 +51,7 @@ add_library(siv3d-messagebus STATIC
     src/RedisConnection.cpp
     src/SharedVariable.cpp
     src/SharedVariableImpl.cpp
+    src/SubscriptionWorker.cpp
     src/TypeMismatchError.cpp
     src/VariableWorker.cpp
 )
@@ -217,6 +218,7 @@ if(SIV3D_MESSAGEBUS_BUILD_TESTS)
         test/RedisConnectionPushTest.cpp
         test/RedisConnectionTest.cpp
         test/SharedVariableTest.cpp
+        test/SubscriptionWorkerTest.cpp
         test/VariableWorkerTest.cpp
     )
     target_include_directories(siv3d-messagebus-tests
