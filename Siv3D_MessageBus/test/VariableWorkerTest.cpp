@@ -45,6 +45,38 @@ protected:
 	}
 };
 
+TEST_F(VariableWorkerBasic, ReadyAfterPreConnectionInitialResponses)
+{
+	ExecRedisCli({ "DEL", "ready_pre_connect_a", "ready_pre_connect_b" });
+
+	MessageBus::detail::VariableWorker worker;
+	auto valueA = worker.getOrCreateVariable("ready_pre_connect_a", U"ready_pre_connect_a", JSON(1))->asSharedVariable<int32>();
+	auto valueB = worker.getOrCreateVariable("ready_pre_connect_b", U"ready_pre_connect_b", JSON(2))->asSharedVariable<int32>();
+
+	EXPECT_FALSE(worker.isReady());
+
+	MessageBus::detail::RedisConnection conn{ {
+		.ip = U"127.0.0.1",
+		.port = 6379,
+		.password = none,
+		.heartbeatInterval = 1s,
+		.onReady = [&](redisAsyncContext*) {
+			worker.onConnect(conn);
+		},
+		.onDisconnect = [&]() {
+			worker.onDisconnect();
+		},
+		.onInvalidate = [&](redisAsyncContext* context, const s3d::Array<std::string>& keys) {
+			worker.onInvalidate(context, keys);
+		},
+	} };
+	ASSERT_TRUE(WaitForConnection(conn, 10s));
+
+	ASSERT_TRUE(WaitUntil(worker, conn, [&]() { return worker.isReady(); }, 5s));
+	EXPECT_EQ(valueA.get(), 1);
+	EXPECT_EQ(valueB.get(), 2);
+}
+
 TEST_F(VariableWorkerBasic, VariableGetExistingValue)
 {
 	MessageBus::detail::VariableWorker worker;

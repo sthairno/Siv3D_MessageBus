@@ -14,6 +14,7 @@ namespace MessageBus::detail
 	void VariableWorker::onConnect(RedisConnection& conn)
 	{
 		syncAll(conn.context());
+		m_isReady = m_data.empty();
 	}
 
 	void VariableWorker::beforeTick(RedisConnection& conn)
@@ -26,6 +27,18 @@ namespace MessageBus::detail
 
 	void VariableWorker::afterTick()
 	{
+		if (not m_isReady)
+		{
+			m_isReady = true;
+			for (auto& [_, impl] : m_data)
+			{
+				if (not impl->isInitialized() || impl->isSending())
+				{
+					m_isReady = false;
+					break;
+				}
+			}
+		}
 	}
 
 	void VariableWorker::beforeDisconnect(RedisConnection&)
