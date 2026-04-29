@@ -264,7 +264,16 @@ namespace MessageBus
 		{
 			return false;
 		}
-		return m_impl->conn->state() == detail::RedisConnectionState::Connected;
+
+		if (m_impl->conn->state() != detail::RedisConnectionState::Connected)
+		{
+			return false;
+		}
+
+		// 前準備が完了するまで connected 扱いにしない
+		return m_impl->subscriptionWorker.isReady()
+			&& m_impl->playerList.isReady()
+			&& m_impl->variableWorker.isReady();
 	}
 
 	bool MessageBus::isDisconnecting() const
