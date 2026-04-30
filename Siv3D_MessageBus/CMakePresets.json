@@ -1,0 +1,220 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 23,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "linux-debug",
+      "displayName": "Linux (Debug)",
+      "inherits": "base",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/Debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "SIV3D_MESSAGEBUS_BUILD_TESTS": "OFF"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "linux-release",
+      "displayName": "Linux (Release)",
+      "inherits": "base",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/Release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "SIV3D_MESSAGEBUS_BUILD_TESTS": "OFF"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "macos-debug",
+      "displayName": "macOS (Debug)",
+      "inherits": "base",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/Debug",
+      "cacheVariables": {
+        "SIV3D_MESSAGEBUS_BUILD_TESTS": "OFF",
+        "CMAKE_OSX_ARCHITECTURES": "x86_64",
+        "VCPKG_TARGET_TRIPLET": "x64-osx"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
+    },
+    {
+      "name": "macos-release",
+      "displayName": "macOS (Release)",
+      "inherits": "base",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/Release",
+      "cacheVariables": {
+        "SIV3D_MESSAGEBUS_BUILD_TESTS": "OFF",
+        "CMAKE_OSX_ARCHITECTURES": "x86_64",
+        "VCPKG_TARGET_TRIPLET": "x64-osx"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
+    },
+    {
+      "name": "linux-debug-test",
+      "displayName": "Linux (Debug, Test)",
+      "inherits": "base",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/Debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "SIV3D_MESSAGEBUS_BUILD_TESTS": "ON"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "linux-release-test",
+      "displayName": "Linux (Release, Test)",
+      "inherits": "base",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/Release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "SIV3D_MESSAGEBUS_BUILD_TESTS": "ON"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "macos-debug-test",
+      "displayName": "macOS (Debug, Test)",
+      "inherits": "base",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/Debug",
+      "cacheVariables": {
+        "SIV3D_MESSAGEBUS_BUILD_TESTS": "ON",
+        "CMAKE_OSX_ARCHITECTURES": "x86_64",
+        "VCPKG_TARGET_TRIPLET": "x64-osx"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
+    },
+    {
+      "name": "macos-release-test",
+      "displayName": "macOS (Release, Test)",
+      "inherits": "base",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/Release",
+      "cacheVariables": {
+        "SIV3D_MESSAGEBUS_BUILD_TESTS": "ON",
+        "CMAKE_OSX_ARCHITECTURES": "x86_64",
+        "VCPKG_TARGET_TRIPLET": "x64-osx"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "build-linux-debug",
+      "displayName": "Build Siv3D_MessageBus (Linux, Debug)",
+      "configurePreset": "linux-debug",
+      "targets": [
+        "siv3d-messagebus"
+      ]
+    },
+    {
+      "name": "build-linux-release",
+      "displayName": "Build Siv3D_MessageBus (Linux, Release)",
+      "configurePreset": "linux-release",
+      "targets": [
+        "siv3d-messagebus"
+      ]
+    },
+    {
+      "name": "build-macos-debug",
+      "displayName": "Build Siv3D_MessageBus (macOS, Debug)",
+      "configurePreset": "macos-debug",
+      "configuration": "Debug",
+      "targets": [
+        "siv3d-messagebus"
+      ]
+    },
+    {
+      "name": "build-macos-release",
+      "displayName": "Build Siv3D_MessageBus (macOS, Release)",
+      "configurePreset": "macos-release",
+      "configuration": "Release",
+      "targets": [
+        "siv3d-messagebus"
+      ]
+    },
+    {
+      "name": "build-linux-debug-test",
+      "displayName": "Build Test (Linux, Debug)",
+      "configurePreset": "linux-debug-test",
+      "targets": [
+        "siv3d-messagebus-tests"
+      ]
+    },
+    {
+      "name": "build-linux-release-test",
+      "displayName": "Build Test (Linux, Release)",
+      "configurePreset": "linux-release-test",
+      "targets": [
+        "siv3d-messagebus-tests"
+      ]
+    },
+    {
+      "name": "build-macos-debug-test",
+      "displayName": "Build Test (macOS, Debug)",
+      "configurePreset": "macos-debug-test",
+      "configuration": "Debug",
+      "targets": [
+        "siv3d-messagebus-tests"
+      ]
+    },
+    {
+      "name": "build-macos-release-test",
+      "displayName": "Build Test (macOS, Release)",
+      "configurePreset": "macos-release-test",
+      "configuration": "Release",
+      "targets": [
+        "siv3d-messagebus-tests"
+      ]
+    }
+  ]
+}
