@@ -65,6 +65,11 @@ namespace MessageBus::detail
 		return true;
 	}
 
+	void SubscriptionWorker::registerCustomEvent(MessageBus::Event&& event)
+	{
+		m_eventsBuf.push_back(std::move(event));
+	}
+
 	void SubscriptionWorker::clearEventsBuffer()
 	{
 		m_eventsBuf.clear();

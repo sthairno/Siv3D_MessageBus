@@ -59,6 +59,21 @@ TEST(SubscriptionWorkerUnit, HandlePubSubMessageEmptyPayloadAsInvalid)
 	EXPECT_EQ(events[0].value, JSON::Invalid());
 }
 
+TEST(SubscriptionWorkerUnit, RegisterCustomEventAppendsWithoutSubscribe)
+{
+	MessageBus::detail::SubscriptionWorker worker;
+
+	worker.registerCustomEvent(MessageBus::MessageBus::Event{
+		.channel = U"local",
+		.value = JSON(42)
+	});
+
+	const auto& events = worker.events();
+	ASSERT_EQ(events.size(), 1);
+	EXPECT_EQ(events[0].channel, U"local");
+	EXPECT_EQ(events[0].value.get<int32>(), 42);
+}
+
 // ============================================================================
 // SubscriptionWorker Redis購読/受信テスト
 // ============================================================================

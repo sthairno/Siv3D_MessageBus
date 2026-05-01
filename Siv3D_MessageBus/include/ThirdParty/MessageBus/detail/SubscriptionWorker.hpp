@@ -40,6 +40,9 @@ namespace MessageBus::detail
 
 		bool handlePubSubMessage(std::string_view channel, std::string_view payload);
 
+		/// @brief Redis を経由せず、任意の受信イベントを events() と同じ一覧に載せます（ローカル通知・内部処理からのイベント用）。
+		void registerCustomEvent(MessageBus::Event&& event);
+
 		void clearEventsBuffer();
 
 		bool subscribe(s3d::StringView channel);
