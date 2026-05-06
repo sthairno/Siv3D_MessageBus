@@ -6,7 +6,6 @@
 #include <Siv3D/HashTable.hpp>
 #include <Siv3D/StringView.hpp>
 
-#include <functional>
 #include <string>
 #include <string_view>
 
@@ -22,8 +21,6 @@ namespace MessageBus::detail
 	class SubscriptionWorker
 	{
 	public:
-		using PubSubMessageHandler = std::function<bool(std::string_view channel, std::string_view payload)>;
-
 		SubscriptionWorker();
 
 		void onConnect(RedisConnection& conn);
@@ -35,8 +32,6 @@ namespace MessageBus::detail
 		void beforeDisconnect(RedisConnection& conn);
 
 		void onDisconnect();
-
-		void setPubSubMessageHandler(PubSubMessageHandler handler);
 
 		bool handlePubSubMessage(std::string_view channel, std::string_view payload);
 
@@ -65,7 +60,6 @@ namespace MessageBus::detail
 		s3d::HashTable<std::string, ChannelState> m_channels;
 		bool m_channelsDirty = false;
 		s3d::Array<MessageBus::Event> m_eventsBuf;
-		PubSubMessageHandler m_externalPubSubMessageHandler;
 		bool m_subscribeAckReceived = false;
 
 		static void onSubscriptionMessageReceive(redisAsyncContext* context, redisReply* reply, SubscriptionWorker* self);

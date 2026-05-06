@@ -19,13 +19,6 @@ TEST(VariableWorkerUnit, GetOrCreateVariableReturnsSameInstance)
 	EXPECT_EQ(var1, var2);
 }
 
-TEST(VariableWorkerUnit, HandlePubSubMessageReturnsFalse)
-{
-	MessageBus::detail::VariableWorker worker;
-
-	EXPECT_FALSE(worker.handlePubSubMessage("channel", "payload"));
-}
-
 // ============================================================================
 // VariableWorker 基本テスト
 // ============================================================================

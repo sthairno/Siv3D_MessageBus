@@ -5,7 +5,6 @@
 #include <Siv3D/JSON.hpp>
 #include <Siv3D/Unicode.hpp>
 
-#include <utility>
 #include <vector>
 
 extern "C" {
@@ -42,11 +41,6 @@ namespace MessageBus::detail
 	{
 		m_subscribeAckReceived = false;
 		markAllUnsubscribed();
-	}
-
-	void SubscriptionWorker::setPubSubMessageHandler(PubSubMessageHandler handler)
-	{
-		m_externalPubSubMessageHandler = std::move(handler);
 	}
 
 	bool SubscriptionWorker::handlePubSubMessage(std::string_view channel, std::string_view payload)
@@ -148,12 +142,6 @@ namespace MessageBus::detail
 			self->m_subscribeAckReceived = true;
 		} else if (kind == "message" && payloadElem->type == REDIS_REPLY_STRING) {
 			const std::string_view payload{ payloadElem->str, payloadElem->len };
-
-			if (self->m_externalPubSubMessageHandler &&
-				self->m_externalPubSubMessageHandler(channelName, payload))
-			{
-				return;
-			}
 			self->handlePubSubMessage(channelName, payload);
 		}
 	}

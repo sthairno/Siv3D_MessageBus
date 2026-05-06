@@ -69,11 +69,6 @@ namespace MessageBus::detail
 		}
 	}
 
-	bool VariableWorker::handlePubSubMessage(std::string_view, std::string_view)
-	{
-		return false;
-	}
-
 	void VariableWorker::resetAll()
 	{
 		for (auto& [name, varImpl] : m_data)

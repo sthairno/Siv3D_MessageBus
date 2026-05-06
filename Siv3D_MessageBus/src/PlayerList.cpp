@@ -36,6 +36,10 @@ namespace MessageBus::detail
 
 	void PlayerList::onConnect(RedisConnection& conn)
 	{
+		m_playerListFetched = false;
+		m_subscriptionAckReceived = false;
+		subscribePlayerChannels(conn.context());
+
 		m_timeSinceUpdate.restart();
 		m_sessionUpdateInFlight = false;
 		m_sessionStatus = SessionStatus::InactiveOrExpired;
@@ -102,7 +106,8 @@ namespace MessageBus::detail
 
 	void PlayerList::onDisconnect()
 	{
-		m_isReady = false;
+		m_playerListFetched = false;
+		m_subscriptionAckReceived = false;
 		m_timeSinceUpdate.reset();
 		m_sessionUpdateInFlight = false;
 		m_sessionStatus = SessionStatus::InactiveOrExpired;
@@ -150,6 +155,87 @@ namespace MessageBus::detail
 		static const sqidscxx::Sqids<std::uint64_t> sqids{ sqidsOptions };
 
 		return sqids.encode(std::vector<std::uint64_t>{ a, b });
+	}
+
+	void PlayerList::subscribePlayerChannels(redisAsyncContext* context)
+	{
+		if (!context) { return; }
+
+		const char* argv[3];
+		size_t argvlen[3];
+		argv[0] = "SUBSCRIBE";
+		argvlen[0] = 9;
+		argv[1] = PlayerJoinChannelUtf8.data();
+		argvlen[1] = PlayerJoinChannelUtf8.size();
+		argv[2] = PlayerLeftChannelUtf8.data();
+		argvlen[2] = PlayerLeftChannelUtf8.size();
+
+		const int rc = redisAsyncCommandArgv(
+			context,
+			reinterpret_cast<redisCallbackFn*>(PlayerList::onSubscriptionMessageReceive),
+			this,
+			3, argv, argvlen
+		);
+
+		if (rc != REDIS_OK)
+		{
+			s3d::Logger << U"[MessageBus][ERROR] Failed to subscribe player list channels: Command execution was failed";
+		}
+	}
+
+	void PlayerList::onSubscriptionMessageReceive(redisAsyncContext*, redisReply* reply, PlayerList* self)
+	{
+		if (!self || !reply)
+		{
+			return;
+		}
+
+		if (reply->type == REDIS_REPLY_ERROR)
+		{
+			std::string_view message{ reply->str, reply->len };
+			s3d::Logger
+				<< U"[MessageBus][ERROR] Failed to receive player list subscription message: "
+				<< s3d::Unicode::FromUTF8(message);
+			return;
+		}
+
+		if (reply->type != REDIS_REPLY_PUSH ||
+			reply->elements < 3)
+		{
+			return;
+		}
+
+		redisReply* kindElem = reply->element[0];
+		redisReply* channelElem = reply->element[1];
+		redisReply* payloadElem = reply->element[2];
+		if (!kindElem ||
+			kindElem->type != REDIS_REPLY_STRING ||
+			!channelElem ||
+			channelElem->type != REDIS_REPLY_STRING ||
+			!payloadElem)
+		{
+			return;
+		}
+
+		const std::string_view kind{ kindElem->str, kindElem->len };
+		const std::string_view channelName{ channelElem->str, channelElem->len };
+
+		if (kind == "subscribe")
+		{
+			if ((payloadElem->type == REDIS_REPLY_INTEGER && payloadElem->integer >= 2) ||
+				channelName == PlayerLeftChannelUtf8)
+			{
+				self->m_subscriptionAckReceived = true;
+			}
+			return;
+		}
+
+		if (kind == "message" &&
+			payloadElem->type == REDIS_REPLY_STRING)
+		{
+			const std::string_view payload{ payloadElem->str, payloadElem->len };
+			self->handlePubSubMessage(channelName, payload);
+		}
 	}
 
 	void PlayerList::updateSession(redisAsyncContext* context)
@@ -348,7 +434,7 @@ namespace MessageBus::detail
 			return;
 		}
 
-		self->m_isReady = true;
+		self->m_playerListFetched = true;
 
 		self->m_connectedPlayerUidsUtf8.clear();
 		self->m_connectedPlayerUidsUtf8.reserve(static_cast<size_t>(reply->elements));

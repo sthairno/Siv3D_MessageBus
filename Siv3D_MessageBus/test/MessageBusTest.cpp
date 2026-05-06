@@ -280,7 +280,7 @@ TEST_F(MessageBusPlayerList, OnlineIdListIsUpdatedWhenAnotherClientJoins)
 	MessageBus::MessageBus bus2{ U"127.0.0.1", 6379, none };
 	WaitForConnection(bus2, 10s);
 	
-	bool joined = WaitUntil(bus1, [&]() {
+	bool joined = WaitUntil(bus1, bus2, [&]() {
 		return bus1.onlineIdList().size() == 2;
 	}, 10s);
 	EXPECT_TRUE(joined);
@@ -299,7 +299,7 @@ TEST_F(MessageBusPlayerList, OnlineIdListIsUpdatedWhenAnotherClientLeaves)
 	MessageBus::MessageBus bus2{ U"127.0.0.1", 6379, none };
 	WaitForConnection(bus2, 10s);
 	
-	bool joined = WaitUntil(bus1, [&]() {
+	bool joined = WaitUntil(bus1, bus2, [&]() {
 		return bus1.onlineIdList().size() == 2;
 	}, 10s);
 	ASSERT_TRUE(joined);
@@ -350,7 +350,7 @@ TEST_F(MessageBusPlayerList, JoinEventIsAddedWhenAnotherClientJoins)
 	MessageBus::MessageBus bus2{ U"127.0.0.1", 6379, none };
 	WaitForConnection(bus2, 10s);
 	
-	bool joined = WaitUntil(bus1, [&]() {
+	bool joined = WaitUntil(bus1, bus2, [&]() {
 		if (bus1.events().size() == 0) return false;
 		const auto& event = bus1.events()[0];
 		return event.channel == U"s3d-mbus:join" && event.value == JSON(bus2.id());
@@ -389,7 +389,7 @@ TEST_F(MessageBusPlayerList, LeftEventIsAddedWhenAnotherClientLeaves)
 	MessageBus::MessageBus bus2{ U"127.0.0.1", 6379, none };
 
 	WaitForConnection(bus2, 10s);
-	bool joined = WaitUntil(bus1, [&]() {
+	bool joined = WaitUntil(bus1, bus2, [&]() {
 		if (bus1.events().size() == 0) return false;
 		const auto& event = bus1.events()[0];
 		return event.channel == U"s3d-mbus:join" && event.value == JSON(bus2.id());

@@ -51,35 +51,16 @@ namespace MessageBus
 
 		Impl()
 		{
-			setupSubscriptionWorker();
 		}
 
 		Impl(s3d::StringView ip, s3d::uint16 port, s3d::Optional<s3d::StringView> password)
 		{
-			setupSubscriptionWorker();
 			createConnection(ip, port, password);
 		}
 
 		~Impl()
 		{
 			conn.reset();
-		}
-
-		void setupSubscriptionWorker()
-		{
-			subscriptionWorker.setPubSubMessageHandler([this](std::string_view channel, std::string_view payload) {
-				if (playerList.handlePubSubMessage(channel, payload))
-				{
-					return true;
-				}
-
-				if (variableWorker.handlePubSubMessage(channel, payload))
-				{
-					return true;
-				}
-
-				return false;
-			});
 		}
 
 		void createConnection(s3d::StringView ip, s3d::uint16 port, s3d::Optional<s3d::StringView> password)

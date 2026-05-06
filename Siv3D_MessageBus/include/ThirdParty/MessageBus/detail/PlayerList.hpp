@@ -59,7 +59,7 @@ namespace MessageBus::detail
 		const std::vector<std::string>& removedPlayerUidsUtf8() const noexcept { return m_removedPlayerUidsUtf8; }
 
 		[[nodiscard]]
-		bool isReady() const noexcept { return m_isReady; }
+		bool isReady() const noexcept { return m_playerListFetched && m_subscriptionAckReceived; }
 
 	private:
 
@@ -85,10 +85,15 @@ namespace MessageBus::detail
 
 		s3d::Stopwatch m_timeSinceLastRefresh;
 
-		bool m_isReady = false;
+		bool m_playerListFetched = false;
+		bool m_subscriptionAckReceived = false;
 
 		[[nodiscard]]
 		static std::string generateUidUtf8();
+
+		void subscribePlayerChannels(redisAsyncContext* context);
+
+		static void onSubscriptionMessageReceive(redisAsyncContext* context, redisReply* reply, PlayerList* self);
 
 		void publishPlayerJoin(redisAsyncContext* context);
 

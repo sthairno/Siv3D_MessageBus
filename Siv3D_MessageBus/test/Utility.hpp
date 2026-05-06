@@ -140,6 +140,19 @@ static bool WaitUntil(MessageBus::MessageBus& bus, Pred&& predicate, Duration ti
 	return predicate();
 }
 
+// 条件が満たされるまで待機（2つの MessageBus を同時に進める）
+template <class Pred>
+static bool WaitUntil(MessageBus::MessageBus& bus1, MessageBus::MessageBus& bus2, Pred&& predicate, Duration timeout = 5s)
+{
+	Stopwatch sw{ StartImmediately::Yes };
+	while (sw < timeout && !predicate())
+	{
+		bus1.update();
+		bus2.update();
+	}
+	return predicate();
+}
+
 // 状態が特定の値になるまで待機
 static bool WaitForState(MessageBus::detail::RedisConnection& conn, MessageBus::detail::RedisConnectionState targetState, Duration timeout = 5s)
 {

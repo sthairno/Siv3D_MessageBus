@@ -34,8 +34,6 @@ namespace MessageBus::detail
 
 		void onInvalidate(redisAsyncContext* context, const s3d::Array<std::string>& keys);
 
-		bool handlePubSubMessage(std::string_view channel, std::string_view payload);
-
 		void resetAll();
 
 		void syncAll(redisAsyncContext* context);
