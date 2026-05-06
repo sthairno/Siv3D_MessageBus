@@ -202,9 +202,13 @@ namespace MessageBus
 			return;
 		}
 
-		m_impl->subscriptionWorker.beforeDisconnect(*m_impl->conn);
-		m_impl->playerList.beforeDisconnect(*m_impl->conn);
-		m_impl->variableWorker.beforeDisconnect(*m_impl->conn);
+		if (m_impl->conn->state() == detail::RedisConnectionState::Connected)
+		{
+			m_impl->subscriptionWorker.beforeDisconnect(*m_impl->conn);
+			m_impl->playerList.beforeDisconnect(*m_impl->conn);
+			m_impl->variableWorker.beforeDisconnect(*m_impl->conn);
+		}
+
 		m_impl->conn->disconnect();
 	}
 
