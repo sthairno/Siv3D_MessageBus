@@ -368,8 +368,8 @@ TEST_F(MessageBusPlayerList, JoinEventIsAddedWhenThereIsExistingPlayerSession)
 	WaitForConnection(bus2, 10s);
 	
 	ASSERT_EQ(bus2.events().size(), 2);
-	bool joinEventForBus1 = true;
-	bool joinEventForBus2 = true;
+	bool joinEventForBus1 = false;
+	bool joinEventForBus2 = false;
 	for (const auto& event : bus2.events())
 	{
 		joinEventForBus1 |= event.channel == U"s3d-mbus:join" && event.value == JSON(bus1.id());
