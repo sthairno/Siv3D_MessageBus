@@ -252,6 +252,10 @@ void Main()
 ### 4.2 接続中の ID 一覧を取得する
 - `onlineIdList()` で同じサーバーに接続中の `id()` の一覧が取得できます
 - `isConnected()` が `true` の間は自動更新されます
+- `events()` で `onlineIdList()` が変化した際のイベントを取得できます
+	- 追加イベント: `channel= s3d-mbus:join`
+	- 削除イベント: `channel= s3d-mbus:left`
+	- `value`には、追加または削除された ID が文字列として入ります
 
 ```cpp
 # include <Siv3D.hpp>
@@ -267,6 +271,18 @@ void Main()
 
 		Print << U"Your ID: " << bus.id();
 		Print << U"All ID(s): " << bus.onlineIdList();
+
+		for (const auto& event : bus.events())
+		{
+			if (event.channel == U"s3d-mbus:join")
+			{
+				Print << U"Joined: " << event.value;
+			}
+			else if (event.channel == U"s3d-mbus:left")
+			{
+				Print << U"Left: " << event.value;
+			}
+		}
 	}
 
 	bus.shutdown();
