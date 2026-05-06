@@ -59,11 +59,11 @@ TEST(SubscriptionWorkerUnit, HandlePubSubMessageEmptyPayloadAsInvalid)
 	EXPECT_EQ(events[0].value, JSON::Invalid());
 }
 
-TEST(SubscriptionWorkerUnit, RegisterCustomEventAppendsWithoutSubscribe)
+TEST(SubscriptionWorkerUnit, AppendCustomEventAppendsWithoutSubscribe)
 {
 	MessageBus::detail::SubscriptionWorker worker;
 
-	worker.registerCustomEvent(MessageBus::MessageBus::Event{
+	worker.appendCustomEvent(MessageBus::MessageBus::Event{
 		.channel = U"local",
 		.value = JSON(42)
 	});
