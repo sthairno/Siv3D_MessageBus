@@ -80,6 +80,8 @@ namespace MessageBus
 					subscriptionWorker.onDisconnect();
 					playerList.onDisconnect();
 					variableWorker.onDisconnect();
+
+					syncPlayerList();
 				},
 				.onInvalidate = [this](redisAsyncContext* context, const s3d::Array<std::string>& keys) {
 					variableWorker.onInvalidate(context, keys);
