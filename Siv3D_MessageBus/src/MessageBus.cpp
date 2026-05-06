@@ -119,6 +119,24 @@ namespace MessageBus
 			}
 		}
 
+		void addPlayerEvent()
+		{
+			for (const std::string& uid : playerList.addedPlayerUidsUtf8())
+			{
+				subscriptionWorker.appendCustomEvent(Event{
+					.channel = U"s3d-mbus:join",
+					.value = JSON(Unicode::FromUTF8(uid))
+				});
+			}
+			for (const std::string& uid : playerList.removedPlayerUidsUtf8())
+			{
+				subscriptionWorker.appendCustomEvent(Event{
+					.channel = U"s3d-mbus:left",
+					.value = JSON(Unicode::FromUTF8(uid))
+				});
+			}
+		}
+
 		static void onPublishCallback(redisAsyncContext*, redisReply* reply, Impl*)
 		{
 			if (!reply) return;
@@ -255,6 +273,7 @@ namespace MessageBus
 			!m_impl->playerList.removedPlayerUidsUtf8().empty())
 		{
 			m_impl->syncPlayerList();
+			m_impl->addPlayerEvent();
 		}
 	}
 

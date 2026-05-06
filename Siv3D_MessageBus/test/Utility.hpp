@@ -128,6 +128,18 @@ static bool WaitUntil(MessageBus::detail::SubscriptionWorker& worker, MessageBus
 	return predicate();
 }
 
+// 条件が満たされるまで待機（MessageBus 用）
+template <class Pred>
+static bool WaitUntil(MessageBus::MessageBus& bus, Pred&& predicate, Duration timeout = 5s)
+{
+	Stopwatch sw{ StartImmediately::Yes };
+	while (sw < timeout && !predicate())
+	{
+		bus.update();
+	}
+	return predicate();
+}
+
 // 状態が特定の値になるまで待機
 static bool WaitForState(MessageBus::detail::RedisConnection& conn, MessageBus::detail::RedisConnectionState targetState, Duration timeout = 5s)
 {
@@ -177,6 +189,25 @@ static bool WaitForEvent(MessageBus::MessageBus& bus, Duration timeout = 5s)
 		bus.update();
 		const auto& evs = bus.events();
 		if (!evs.isEmpty()) return true;
+		System::Sleep(TICK_INTERVAL);
+	}
+	return false;
+}
+
+template <class Pred>
+static bool WaitForEventMatching(MessageBus::MessageBus& bus, Pred&& predicate, Duration timeout = 5s)
+{
+	Stopwatch sw{ StartImmediately::Yes };
+	while (sw < timeout)
+	{
+		bus.update();
+		for (const auto& event : bus.events())
+		{
+			if (predicate(event))
+			{
+				return true;
+			}
+		}
 		System::Sleep(TICK_INTERVAL);
 	}
 	return false;
