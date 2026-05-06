@@ -49,7 +49,7 @@ namespace MessageBus
 		s3d::DateTime updatedAt() const;
 
 	private:
-		friend class MessageBus;
+		friend class detail::SharedVariableImpl;
 
 		explicit SharedVariable(std::shared_ptr<detail::SharedVariableImpl> impl);
 

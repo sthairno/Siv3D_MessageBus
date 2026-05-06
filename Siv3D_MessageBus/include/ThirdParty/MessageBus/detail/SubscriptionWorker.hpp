@@ -1,0 +1,71 @@
+#pragma once
+
+#include "MessageBus/MessageBus.hpp"
+
+#include <Siv3D/Array.hpp>
+#include <Siv3D/HashTable.hpp>
+#include <Siv3D/StringView.hpp>
+
+#include <string>
+#include <string_view>
+
+extern "C" {
+struct redisAsyncContext;
+struct redisReply;
+}
+
+namespace MessageBus::detail
+{
+	class RedisConnection;
+
+	class SubscriptionWorker
+	{
+	public:
+		SubscriptionWorker();
+
+		void onConnect(RedisConnection& conn);
+
+		void beforeTick(RedisConnection& conn);
+
+		void afterTick();
+
+		void beforeDisconnect(RedisConnection& conn);
+
+		void onDisconnect();
+
+		bool handlePubSubMessage(std::string_view channel, std::string_view payload);
+
+		/// @brief Redis を経由せず、任意の受信イベントを events() と同じ一覧に載せます（ローカル通知・内部処理からのイベント用）。
+		void appendCustomEvent(MessageBus::Event&& event);
+
+		void clearEventsBuffer();
+
+		bool subscribe(s3d::StringView channel);
+
+		bool unsubscribe(s3d::StringView channel);
+
+		[[nodiscard]]
+		const s3d::Array<MessageBus::Event>& events() const noexcept { return m_eventsBuf; }
+
+		[[nodiscard]]
+		bool isReady() const noexcept { return m_subscribeAckReceived; }
+
+	private:
+		struct ChannelState
+		{
+			bool desired = false; // ユーザーの購読意図
+			bool remote = false;  // サーバー側で購読確定
+		};
+
+		s3d::HashTable<std::string, ChannelState> m_channels;
+		bool m_channelsDirty = false;
+		s3d::Array<MessageBus::Event> m_eventsBuf;
+		bool m_subscribeAckReceived = false;
+
+		static void onSubscriptionMessageReceive(redisAsyncContext* context, redisReply* reply, SubscriptionWorker* self);
+
+		void markAllUnsubscribed();
+
+		void syncSubscriptions(redisAsyncContext* context);
+	};
+}

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
@@ -87,9 +87,6 @@
       <SubSystem>Windows</SubSystem>
       <DelayLoadDLLs>advapi32.dll;crypt32.dll;dwmapi.dll;gdi32.dll;imm32.dll;ole32.dll;oleaut32.dll;opengl32.dll;shell32.dll;shlwapi.dll;user32.dll;winmm.dll;ws2_32.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
-    <PreBuildEvent>
-      <Command>python3 "$(ProjectDir)scripts\hiredis_license_cpp.py"</Command>
-    </PreBuildEvent>
     <PostBuildEvent />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -118,9 +115,6 @@
       <SubSystem>Windows</SubSystem>
       <DelayLoadDLLs>advapi32.dll;crypt32.dll;dwmapi.dll;gdi32.dll;imm32.dll;ole32.dll;oleaut32.dll;opengl32.dll;shell32.dll;shlwapi.dll;user32.dll;winmm.dll;ws2_32.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
-    <PreBuildEvent>
-      <Command>python3 "$(ProjectDir)scripts\hiredis_license_cpp.py"</Command>
-    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <None Include=".editorconfig" />
@@ -142,11 +136,15 @@
     <ClCompile Include="src\ConnectNotAllowedError.cpp" />
     <ClCompile Include="src\InvalidNameError.cpp" />
     <ClCompile Include="src\MessageBus.cpp" />
+    <ClCompile Include="src\PlayerList.cpp" />
     <ClCompile Include="src\RedisConnection.cpp" />
     <ClCompile Include="src\SharedVariable.cpp" />
     <ClCompile Include="src\SharedVariableImpl.cpp" />
+    <ClCompile Include="src\SubscriptionWorker.cpp" />
     <ClCompile Include="src\generated\HiredisLicense.cpp" />
+    <ClCompile Include="src\generated\SqidsCppLicense.cpp" />
     <ClCompile Include="src\TypeMismatchError.cpp" />
+    <ClCompile Include="src\VariableWorker.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

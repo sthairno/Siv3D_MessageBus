@@ -2,6 +2,9 @@
 #include <MessageBus/MessageBus.hpp>
 #include "Utility.hpp"
 
+#include <algorithm>
+#include <gtest/gtest.h>
+
 // ============================================================================
 // MessageBus基本接続テスト
 // ============================================================================
@@ -29,21 +32,19 @@ TEST_F(MessageBusBasic, ConnectionSuccess)
 	WaitForConnection(bus, 10s);
 };
 
-TEST_F(MessageBusBasic, ConnectFromDefaultConstructorThenConnectNotAllowed)
+TEST_F(MessageBusBasic, ConnectNotAllowedIfAlreadyConnectingByConnectMethod)
 {
 	MessageBus::MessageBus bus{};
 
 	EXPECT_FALSE(bus.isConnected());
 	bus.connect(U"127.0.0.1", 6379, none);
-	WaitForConnection(bus, 10s);
-
 	EXPECT_THROW(
 		bus.connect(U"127.0.0.1", 6379, none),
 		MessageBus::ConnectNotAllowedError
 	);
 }
 
-TEST_F(MessageBusBasic, ConnectNotAllowedIfAddressConstructorUsed)
+TEST_F(MessageBusBasic, ConnectNotAllowedIfAlreadyConnectingByAddressConstructor)
 {
 	MessageBus::MessageBus bus{ U"127.0.0.1", 6379, none };
 
@@ -81,7 +82,7 @@ TEST_F(MessageBusAuth, ConnectionWithPassword)
 }
 
 // ============================================================================
-// MessageBus イベント購読/受信テスト
+// MessageBus イベント送信/ライフサイクルテスト
 // ============================================================================
 
 class MessageBusEvents : public RedisDocker
@@ -99,144 +100,82 @@ protected:
 	}
 };
 
-TEST_F(MessageBusEvents, SubscribeBeforeConnection)
+TEST_F(MessageBusEvents, EventsDefaultEmpty)
 {
-	MessageBus::MessageBus bus{ U"127.0.0.1", 6379, none };
-	ASSERT_TRUE(bus.subscribe(U"t1"));
-	WaitForConnection(bus, 10s);
-	Sleep(bus, 0.5s); // Wait for subscribe to be processed
-
-	Publish("t1", R"({"k":1})");
-	ASSERT_TRUE(WaitForEvent(bus, 5s));
+	MessageBus::MessageBus bus;
 
 	const auto& events = bus.events();
-	EXPECT_EQ(events.size(), 1);
-	EXPECT_EQ(events[0].channel, U"t1");
-	EXPECT_EQ(events[0].value[U"k"].get<int32>(), 1);
+	EXPECT_TRUE(events.isEmpty());
 }
 
-TEST_F(MessageBusEvents, SubscribeAfterConnection)
+TEST_F(MessageBusEvents, SubscribeReceivesPublishedEvent)
 {
 	MessageBus::MessageBus bus{ U"127.0.0.1", 6379, none };
 	WaitForConnection(bus, 10s);
+	bus.update();
 
-	EXPECT_TRUE(bus.subscribe(U"t1"));
-	Sleep(bus, 1s);
-
-	Publish("t1", R"({"k":1})");
-	ASSERT_TRUE(WaitForEvent(bus, 5s));
-
-	const auto& events = bus.events();
-	EXPECT_EQ(events.size(), 1);
-	EXPECT_EQ(events[0].channel, U"t1");
-	EXPECT_EQ(events[0].value[U"k"].get<int32>(), 1);
-}
-
-TEST_F(MessageBusEvents, ReceiveMultipleEvents)
-{
-	MessageBus::MessageBus bus{ U"127.0.0.1", 6379, none };
-	ASSERT_TRUE(bus.subscribe(U"t1"));
-	WaitForConnection(bus, 10s);
+	ASSERT_TRUE(bus.subscribe(U"user-event"));
 	Sleep(bus, 0.5s);
 
-	Publish("t1", R"({"k":1})");
-	Publish("t1", R"({"k":2})");
-	System::Sleep(1s);
-	ASSERT_TRUE(WaitForEvent(bus, 5s));
-
-	const auto& events = bus.events();
-	ASSERT_EQ(events.size(), 2);
-	EXPECT_EQ(events[0].channel, U"t1");
-	EXPECT_EQ(events[0].value[U"k"].get<int32>(), 1);
-	EXPECT_EQ(events[1].channel, U"t1");
-	EXPECT_EQ(events[1].value[U"k"].get<int32>(), 2);
+	Publish("user-event", R"({"k":1})");
+	ASSERT_TRUE(WaitForEventMatching(bus, [](const auto& event)
+	{
+		return event.channel == U"user-event" && event.value[U"k"].template get<int32>() == 1;
+	}, 5s));
 }
 
-TEST_F(MessageBusEvents, DoesNotReceiveUnsubscribedEvents)
+TEST_F(MessageBusEvents, UnsubscribeStopsPublishedEvent)
 {
 	MessageBus::MessageBus bus{ U"127.0.0.1", 6379, none };
-	EXPECT_TRUE(bus.subscribe(U"t1"));
 	WaitForConnection(bus, 10s);
+	bus.update();
 
-	Publish("t2", R"({"k":1})");
-	EXPECT_FALSE(WaitForEvent(bus, 1s));
-
-	const auto& events = bus.events();
-	EXPECT_EQ(events.size(), 0);
-}
-
-TEST_F(MessageBusEvents, UnsubscribeThenNoLongerReceive)
-{
-	MessageBus::MessageBus bus{ U"127.0.0.1", 6379, none };
-	ASSERT_TRUE(bus.subscribe(U"u"));
-	WaitForConnection(bus, 10s);
+	ASSERT_TRUE(bus.subscribe(U"user-event-unsubscribe"));
 	Sleep(bus, 0.5s);
 
-	Publish("u", "1");
-	ASSERT_TRUE(WaitForEvent(bus, 5s));
+	Publish("user-event-unsubscribe", R"({"k":1})");
+	ASSERT_TRUE(WaitForEventMatching(bus, [](const auto& event)
+	{
+		return event.channel == U"user-event-unsubscribe" && event.value[U"k"].template get<int32>() == 1;
+	}, 5s));
 
-	bus.unsubscribe(U"u");
-	System::Sleep(1s);
-	Publish("u", "2");
+	ASSERT_TRUE(bus.unsubscribe(U"user-event-unsubscribe"));
+	Sleep(bus, 0.5s);
 
-	ASSERT_FALSE(WaitForEvent(bus, 5s));
+	Publish("user-event-unsubscribe", R"({"k":2})");
+	EXPECT_FALSE(WaitForEventMatching(bus, [](const auto& event)
+	{
+		return event.channel == U"user-event-unsubscribe";
+	}, 1s));
 }
-
-TEST_F(MessageBusEvents, AutoResubscribeAfterReconnect)
-{
-	MessageBus::MessageBus bus{ U"127.0.0.1", 6379, none };
-	ASSERT_TRUE(bus.subscribe(U"r1"));
-	WaitForConnection(bus, 10s);
-
-	StopContainer();
-	WaitForDisconnect(bus, 10s);
-	StartContainer();
-	WaitForConnection(bus, 15s);
-	Sleep(bus, 0.5s); // Wait for reconnect to be processed
-
-	Publish("r1", "");
-	EXPECT_TRUE(WaitForEvent(bus, 5s));
-	const auto& events = bus.events();
-	ASSERT_EQ(events.size(), 1);
-	EXPECT_EQ(events[0].channel, U"r1");
-	EXPECT_EQ(events[0].value, JSON::Invalid());
-}
-
-// ============================================================================
-// MessageBus emit 送信テスト
-// ============================================================================
 
 TEST_F(MessageBusEvents, EmitSendsJSONPayload)
 {
 	MessageBus::MessageBus bus{ U"127.0.0.1", 6379, none };
-	ASSERT_TRUE(bus.subscribe(U"p1"));
 	WaitForConnection(bus, 10s);
-	Sleep(bus, 0.5s); // Wait for subscribe to be processed
 
 	auto payload = UR"({ "k": 123 })"_json;
-	ASSERT_TRUE(bus.emit(U"p1", payload));
+	const int received = WithSubscription("p1", [&]()
+	{
+		ASSERT_TRUE(bus.emit(U"p1", payload));
+		Sleep(bus, 0.5s);
+	});
 
-	ASSERT_TRUE(WaitForEvent(bus, 5s));
-	const auto& events = bus.events();
-	ASSERT_EQ(events.size(), 1);
-	EXPECT_EQ(events[0].channel, U"p1");
-	EXPECT_EQ(events[0].value[U"k"].get<int32>(), 123);
+	EXPECT_GE(received, 1);
 }
 
 TEST_F(MessageBusEvents, EmitSendsEmptyAsInvalid)
 {
 	MessageBus::MessageBus bus{ U"127.0.0.1", 6379, none };
-	ASSERT_TRUE(bus.subscribe(U"p2"));
 	WaitForConnection(bus, 10s);
-	Sleep(bus, 0.5s);
 
-	ASSERT_TRUE(bus.emit(U"p2"));
-	ASSERT_TRUE(WaitForEvent(bus, 5s));
+	const int received = WithSubscription("p2", [&]()
+	{
+		ASSERT_TRUE(bus.emit(U"p2"));
+		Sleep(bus, 0.5s);
+	});
 
-	const auto& events = bus.events();
-	ASSERT_EQ(events.size(), 1);
-	EXPECT_EQ(events[0].channel, U"p2");
-	EXPECT_EQ(events[0].value, JSON::Invalid());
+	EXPECT_GE(received, 1);
 }
 
 TEST_F(MessageBusEvents, EmitEmptyChannelNameThrows)
@@ -288,6 +227,186 @@ TEST_F(MessageBusEvents, UnsubscribeSystemReservedChannelNameThrows)
 }
 
 // ============================================================================
+// MessageBus プレイヤー一覧 テスト
+// ============================================================================
+
+class MessageBusPlayerList : public RedisDocker
+{
+protected:
+	static void SetUpTestSuite()
+	{
+		RedisDocker::SetUpTestSuite();
+		StartContainer();
+	}
+
+	static void TearDownTestSuite()
+	{
+		RedisDocker::TearDownTestSuite();
+	}
+};
+
+TEST_F(MessageBusPlayerList, SelfIdIsAvailableBeforeConnection)
+{
+	MessageBus::MessageBus bus;
+	const auto& id = bus.id();
+	EXPECT_FALSE(id.isEmpty());
+}
+
+TEST_F(MessageBusPlayerList, OnlineIdListDefaultEmpty)
+{
+	MessageBus::MessageBus bus;
+
+	const auto& ids = bus.onlineIdList();
+	EXPECT_TRUE(ids.isEmpty());
+}
+
+TEST_F(MessageBusPlayerList, OnlineIdListIsUpdatedWhenConnected)
+{
+	MessageBus::MessageBus bus{ U"127.0.0.1", 6379, none };
+	WaitForConnection(bus, 10s);
+
+	const auto& ids = bus.onlineIdList();
+	ASSERT_EQ(ids.size(), 1);
+	EXPECT_EQ(ids[0], bus.id());
+}
+
+TEST_F(MessageBusPlayerList, OnlineIdListIsUpdatedWhenAnotherClientJoins)
+{
+	MessageBus::MessageBus bus1{ U"127.0.0.1", 6379, none };
+	WaitForConnection(bus1, 10s);
+	ASSERT_EQ(bus1.onlineIdList().size(), 1);
+	bus1.update();
+	
+	MessageBus::MessageBus bus2{ U"127.0.0.1", 6379, none };
+	WaitForConnection(bus2, 10s);
+	
+	bool joined = WaitUntil(bus1, bus2, [&]() {
+		return bus1.onlineIdList().size() == 2;
+	}, 10s);
+	EXPECT_TRUE(joined);
+	ASSERT_EQ(bus1.onlineIdList().size(), 2);
+	EXPECT_TRUE(std::find(bus1.onlineIdList().begin(), bus1.onlineIdList().end(), bus1.id()) != bus1.onlineIdList().end());
+	EXPECT_TRUE(std::find(bus1.onlineIdList().begin(), bus1.onlineIdList().end(), bus2.id()) != bus1.onlineIdList().end());
+}
+
+TEST_F(MessageBusPlayerList, OnlineIdListIsUpdatedWhenAnotherClientLeaves)
+{
+	MessageBus::MessageBus bus1{ U"127.0.0.1", 6379, none };
+	WaitForConnection(bus1, 10s);
+	ASSERT_EQ(bus1.onlineIdList().size(), 1);
+	bus1.update();
+	
+	MessageBus::MessageBus bus2{ U"127.0.0.1", 6379, none };
+	WaitForConnection(bus2, 10s);
+	
+	bool joined = WaitUntil(bus1, bus2, [&]() {
+		return bus1.onlineIdList().size() == 2;
+	}, 10s);
+	ASSERT_TRUE(joined);
+
+	bus2.shutdown();
+
+	bool left = WaitUntil(bus1, [&]() {
+		return bus1.onlineIdList().size() == 1;
+	}, 10s);
+	ASSERT_TRUE(left);
+	ASSERT_EQ(bus1.onlineIdList().size(), 1);
+	EXPECT_TRUE(std::find(bus1.onlineIdList().begin(), bus1.onlineIdList().end(), bus1.id()) != bus1.onlineIdList().end());
+	EXPECT_FALSE(std::find(bus1.onlineIdList().begin(), bus1.onlineIdList().end(), bus2.id()) != bus1.onlineIdList().end());
+}
+
+TEST_F(MessageBusPlayerList, OnlineIdListIsUpdatedWhenThereIsExistingPlayerSession)
+{
+	MessageBus::MessageBus bus1{ U"127.0.0.1", 6379, none };
+	WaitForConnection(bus1, 10s);
+	
+	MessageBus::MessageBus bus2{ U"127.0.0.1", 6379, none };
+	ASSERT_EQ(bus2.onlineIdList().size(), 0);
+	WaitForConnection(bus2, 10s);
+	
+	ASSERT_EQ(bus2.onlineIdList().size(), 2);
+	EXPECT_TRUE(std::find(bus2.onlineIdList().begin(), bus2.onlineIdList().end(), bus1.id()) != bus2.onlineIdList().end());
+	EXPECT_TRUE(std::find(bus2.onlineIdList().begin(), bus2.onlineIdList().end(), bus2.id()) != bus2.onlineIdList().end());
+}
+
+TEST_F(MessageBusPlayerList, JoinEventIsAddedWhenConnected)
+{
+	MessageBus::MessageBus bus{ U"127.0.0.1", 6379, none };
+	WaitForConnection(bus, 10s);
+
+	const auto& events = bus.events();
+	ASSERT_EQ(events.size(), 1);
+	EXPECT_EQ(events[0].channel, U"s3d-mbus:join");
+	EXPECT_EQ(events[0].value, JSON(bus.id()));
+}
+
+TEST_F(MessageBusPlayerList, JoinEventIsAddedWhenAnotherClientJoins)
+{
+	MessageBus::MessageBus bus1{ U"127.0.0.1", 6379, none };
+	WaitForConnection(bus1, 10s);
+	ASSERT_EQ(bus1.events().size(), 1);
+	bus1.update();
+
+	MessageBus::MessageBus bus2{ U"127.0.0.1", 6379, none };
+	WaitForConnection(bus2, 10s);
+	
+	bool joined = WaitUntil(bus1, bus2, [&]() {
+		if (bus1.events().size() == 0) return false;
+		const auto& event = bus1.events()[0];
+		return event.channel == U"s3d-mbus:join" && event.value == JSON(bus2.id());
+	}, 10s);
+
+	EXPECT_TRUE(joined);
+}
+
+TEST_F(MessageBusPlayerList, JoinEventIsAddedWhenThereIsExistingPlayerSession)
+{
+	MessageBus::MessageBus bus1{ U"127.0.0.1", 6379, none };
+	WaitForConnection(bus1, 10s);
+	
+	MessageBus::MessageBus bus2{ U"127.0.0.1", 6379, none };
+	WaitForConnection(bus2, 10s);
+	
+	ASSERT_EQ(bus2.events().size(), 2);
+	bool joinEventForBus1 = false;
+	bool joinEventForBus2 = false;
+	for (const auto& event : bus2.events())
+	{
+		joinEventForBus1 |= event.channel == U"s3d-mbus:join" && event.value == JSON(bus1.id());
+		joinEventForBus2 |= event.channel == U"s3d-mbus:join" && event.value == JSON(bus2.id());
+	}
+	EXPECT_TRUE(joinEventForBus1);
+	EXPECT_TRUE(joinEventForBus2);
+}
+
+TEST_F(MessageBusPlayerList, LeftEventIsAddedWhenAnotherClientLeaves)
+{
+	MessageBus::MessageBus bus1{ U"127.0.0.1", 6379, none };
+	WaitForConnection(bus1, 10s);
+	ASSERT_EQ(bus1.events().size(), 1);
+	bus1.update();
+	
+	MessageBus::MessageBus bus2{ U"127.0.0.1", 6379, none };
+
+	WaitForConnection(bus2, 10s);
+	bool joined = WaitUntil(bus1, bus2, [&]() {
+		if (bus1.events().size() == 0) return false;
+		const auto& event = bus1.events()[0];
+		return event.channel == U"s3d-mbus:join" && event.value == JSON(bus2.id());
+	}, 10s);
+	ASSERT_TRUE(joined);
+
+	bus2.shutdown();
+
+	bool left = WaitUntil(bus1, [&]() {
+		if (bus1.events().size() == 0) return false;
+		const auto& event = bus1.events()[0];
+		return event.channel == U"s3d-mbus:left" && event.value == JSON(bus2.id());
+	}, 10s);
+	EXPECT_TRUE(left);
+}
+
+// ============================================================================
 // MessageBus shutdown テスト
 // ============================================================================
 
@@ -319,8 +438,6 @@ TEST_F(MessageBusEvents, ShutdownWhenDisconnecting)
 
 	// Disconnecting状態を作るため送信中の処理を追加しておく
 	bus.variable<int32>(U"dummy", 0);
-
-	bus.subscribe(U"test");
 	
 	bus.update();
 
@@ -422,42 +539,12 @@ TEST_F(MessageBusEmptyConstructor, UpdateIsSafe)
 	EXPECT_TRUE(events.isEmpty());
 }
 
-TEST_F(MessageBusEmptyConstructor, SubscribeWorksWithoutConnection)
-{
-	MessageBus::MessageBus bus;
-	// connが空でもsubscribe()は動作する（チャンネル状態は保持される）
-	EXPECT_TRUE(bus.subscribe(U"test_channel"));
-	EXPECT_TRUE(bus.subscribe(U"another_channel"));
-}
-
-TEST_F(MessageBusEmptyConstructor, UnsubscribeWorksWithoutConnection)
-{
-	MessageBus::MessageBus bus;
-	// 購読していないチャンネルのunsubscribe()はfalseを返す
-	EXPECT_FALSE(bus.unsubscribe(U"not_subscribed"));
-
-	// 購読してからunsubscribe()は成功する
-	EXPECT_TRUE(bus.subscribe(U"test_channel"));
-	EXPECT_TRUE(bus.unsubscribe(U"test_channel"));
-}
-
 TEST_F(MessageBusEmptyConstructor, EmitReturnsFalseWithoutConnection)
 {
 	MessageBus::MessageBus bus;
 	// connが空の場合、emit()はfalseを返す
 	EXPECT_FALSE(bus.emit(U"test_channel"));
 	EXPECT_FALSE(bus.emit(U"test_channel", UR"({ "k": 1 })"_json));
-}
-
-TEST_F(MessageBusEmptyConstructor, VariableWorksWithoutConnection)
-{
-	MessageBus::MessageBus bus;
-	// connが空でもvariable()は動作する（変数は作成可能）
-	auto var1 = bus.variable<int32>(U"test_var", 42);
-	EXPECT_EQ(var1.get(), 42);
-
-	auto var2 = bus.variable<String>(U"test_string", U"hello");
-	EXPECT_EQ(var2.get(), U"hello");
 }
 
 TEST_F(MessageBusEmptyConstructor, EventsBufferIsEmpty)

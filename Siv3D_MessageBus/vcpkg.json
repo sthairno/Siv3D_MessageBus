@@ -10,6 +10,11 @@
       "platform": "windows | linux | osx"
     },
     {
+      "name": "sqids-cpp",
+      "version>=": "0.3.0",
+      "platform": "windows | linux | osx"
+    },
+    {
       "name": "gtest",
       "platform": "windows | osx"
     },

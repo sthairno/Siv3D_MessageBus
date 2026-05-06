@@ -1,5 +1,8 @@
 #pragma once
+#include <MessageBus/detail/PlayerList.hpp>
 #include <MessageBus/detail/RedisConnection.hpp>
+#include <MessageBus/detail/SubscriptionWorker.hpp>
+#include <MessageBus/detail/VariableWorker.hpp>
 #include <MessageBus/MessageBus.hpp>
 
 static constexpr auto TICK_INTERVAL = 20ms;
@@ -43,6 +46,45 @@ static void Sleep(MessageBus::detail::RedisConnection& conn, Duration time)
 	}
 }
 
+// 一定時間 tick を回す（PlayerList + RedisConnection 用）
+static void Sleep(MessageBus::detail::PlayerList& plist, MessageBus::detail::RedisConnection& conn, Duration time)
+{
+	Stopwatch sw{ StartImmediately::Yes };
+	while (sw < time)
+	{
+		plist.beforeTick(conn);
+		conn.tick();
+		plist.afterTick();
+		System::Sleep(TICK_INTERVAL);
+	}
+}
+
+// 一定時間 tick を回す（VariableWorker + RedisConnection 用）
+static void Sleep(MessageBus::detail::VariableWorker& worker, MessageBus::detail::RedisConnection& conn, Duration time)
+{
+	Stopwatch sw{ StartImmediately::Yes };
+	while (sw < time)
+	{
+		worker.beforeTick(conn);
+		conn.tick();
+		worker.afterTick();
+		System::Sleep(TICK_INTERVAL);
+	}
+}
+
+// 一定時間 tick を回す（SubscriptionWorker + RedisConnection 用）
+static void Sleep(MessageBus::detail::SubscriptionWorker& worker, MessageBus::detail::RedisConnection& conn, Duration time)
+{
+	Stopwatch sw{ StartImmediately::Yes };
+	while (sw < time)
+	{
+		worker.beforeTick(conn);
+		conn.tick();
+		worker.afterTick();
+		System::Sleep(TICK_INTERVAL);
+	}
+}
+
 // 条件が満たされるまで待機（RedisConnection 用）
 template <class Pred>
 static bool WaitUntil(MessageBus::detail::RedisConnection& conn, Pred&& predicate, Duration timeout = 5s)
@@ -52,6 +94,61 @@ static bool WaitUntil(MessageBus::detail::RedisConnection& conn, Pred&& predicat
 	{
 		conn.tick();
 		System::Sleep(TICK_INTERVAL);
+	}
+	return predicate();
+}
+
+// 条件が満たされるまで待機（VariableWorker + RedisConnection 用）
+template <class Pred>
+static bool WaitUntil(MessageBus::detail::VariableWorker& worker, MessageBus::detail::RedisConnection& conn, Pred&& predicate, Duration timeout = 5s)
+{
+	Stopwatch sw{ StartImmediately::Yes };
+	while (sw < timeout && !predicate())
+	{
+		worker.beforeTick(conn);
+		conn.tick();
+		worker.afterTick();
+		System::Sleep(TICK_INTERVAL);
+	}
+	return predicate();
+}
+
+// 条件が満たされるまで待機（SubscriptionWorker + RedisConnection 用）
+template <class Pred>
+static bool WaitUntil(MessageBus::detail::SubscriptionWorker& worker, MessageBus::detail::RedisConnection& conn, Pred&& predicate, Duration timeout = 5s)
+{
+	Stopwatch sw{ StartImmediately::Yes };
+	while (sw < timeout && !predicate())
+	{
+		worker.beforeTick(conn);
+		conn.tick();
+		worker.afterTick();
+		System::Sleep(TICK_INTERVAL);
+	}
+	return predicate();
+}
+
+// 条件が満たされるまで待機（MessageBus 用）
+template <class Pred>
+static bool WaitUntil(MessageBus::MessageBus& bus, Pred&& predicate, Duration timeout = 5s)
+{
+	Stopwatch sw{ StartImmediately::Yes };
+	while (sw < timeout && !predicate())
+	{
+		bus.update();
+	}
+	return predicate();
+}
+
+// 条件が満たされるまで待機（2つの MessageBus を同時に進める）
+template <class Pred>
+static bool WaitUntil(MessageBus::MessageBus& bus1, MessageBus::MessageBus& bus2, Pred&& predicate, Duration timeout = 5s)
+{
+	Stopwatch sw{ StartImmediately::Yes };
+	while (sw < timeout && !predicate())
+	{
+		bus1.update();
+		bus2.update();
 	}
 	return predicate();
 }
@@ -108,6 +205,31 @@ static bool WaitForEvent(MessageBus::MessageBus& bus, Duration timeout = 5s)
 		System::Sleep(TICK_INTERVAL);
 	}
 	return false;
+}
+
+template <class Pred>
+static bool WaitForEventMatching(MessageBus::MessageBus& bus, Pred&& predicate, Duration timeout = 5s)
+{
+	Stopwatch sw{ StartImmediately::Yes };
+	while (sw < timeout)
+	{
+		bus.update();
+		for (const auto& event : bus.events())
+		{
+			if (predicate(event))
+			{
+				return true;
+			}
+		}
+		System::Sleep(TICK_INTERVAL);
+	}
+	return false;
+}
+
+// SubscriptionWorker の events 到着待機（条件を満たしたら true）
+static bool WaitForEvent(MessageBus::detail::SubscriptionWorker& worker, MessageBus::detail::RedisConnection& conn, Duration timeout = 5s)
+{
+	return WaitUntil(worker, conn, [&] { return !worker.events().isEmpty(); }, timeout);
 }
 
 static void Sleep(MessageBus::MessageBus& bus, Duration time)

@@ -104,6 +104,17 @@ namespace MessageBus
 		template<class Type>
 		SharedVariable<Type> variable(s3d::StringView name, const Type& defaultValue);
 
+		// ================================
+		// プレイヤー一覧
+		// ================================
+
+		/// @brief このインスタンスに紐づくIDを取得します
+		const s3d::String& id() const;
+
+		/// @brief 同じサーバーに接続中のMessageBus::idの一覧。isConnectedがtrueの際はバックグラウンドで自動更新されます
+		/// @return MessageBusのIDの配列
+		const s3d::Array<s3d::String>& onlineIdList() const;
+
 	private:
 
 		struct Impl;

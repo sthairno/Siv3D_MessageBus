@@ -6,7 +6,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 CMAKE_TARGETS = {
     "Siv3D_MessageBus": {"target": "siv3d-messagebus", "enable_tests": False},
     "Test": {"target": "siv3d-messagebus-tests", "enable_tests": True},
@@ -60,16 +59,13 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build the project using MSBuild on Windows or CMake on Linux.")
     parser.add_argument("project", help="Project name to build (.vcxproj extension optional).")
     parser.add_argument("configuration", choices=["Debug", "Release"], help="Build configuration.")
-    parser.add_argument("--platform", default="x64", help="Target platform (default: x64).")
     parser.add_argument("--msbuild-path", help="Absolute path to MSBuild.exe (if omitted, detected via vswhere).")
     return parser.parse_args()
-
 
 def build_with_msbuild(
     project_root: Path,
     project_name: str,
     configuration: str,
-    platform_name: str,
     explicit_msbuild: str | None,
 ) -> int:
     project_path = project_root / project_name
@@ -86,7 +82,6 @@ def build_with_msbuild(
     print(f"MSBuild: {msbuild_path}")
     print(f"Project: {project_path}")
     print(f"Configuration: {configuration}")
-    print(f"Platform: {platform_name}")
 
     command = [
         str(msbuild_path),
@@ -94,7 +89,7 @@ def build_with_msbuild(
         "/property:GenerateFullPaths=true",
         "/t:build",
         f"/p:configuration={configuration}",
-        f"/p:platform={platform_name}",
+        f"/p:platform=x64",
         "/verbosity:quiet",
         "/nologo",
     ]
@@ -112,8 +107,37 @@ def build_with_msbuild(
     print("Build completed successfully.")
     return 0
 
+def ensure_vcpkg_root_env() -> bool:
+    vcpkg_root = os.environ.get("VCPKG_ROOT")
+    install_root = os.environ.get("VCPKG_INSTALLATION_ROOT")
 
-def build_with_cmake(project_root: Path, project_stem: str, configuration: str, generator: str | None = None) -> int:
+    if vcpkg_root:
+        return True
+    
+    if install_root:
+        os.environ["VCPKG_ROOT"] = install_root
+        return True
+
+    return False
+
+def cmake_configure_preset_name(platform: str, configuration: str, project_stem: str) -> str:
+    target = CMAKE_TARGETS.get(project_stem)
+    config = configuration.lower()
+    suffix = "-test" if target["enable_tests"] else ""
+    return f"{platform}-{config}{suffix}"
+
+def cmake_build_preset_name(platform: str, configuration: str, project_stem: str) -> str:
+    target = CMAKE_TARGETS.get(project_stem)
+    config = configuration.lower()
+    suffix = "-test" if target["enable_tests"] else ""
+    return f"build-{platform}-{config}{suffix}"
+
+def build_with_cmake(
+    project_root: Path,
+    project_stem: str,
+    configuration: str,
+    platform: str
+) -> int:
     target = CMAKE_TARGETS.get(project_stem)
     if not target:
         known_projects = ", ".join(sorted(CMAKE_TARGETS))
@@ -123,40 +147,22 @@ def build_with_cmake(project_root: Path, project_stem: str, configuration: str, 
         )
         return 1
 
-    vcpkg_root = os.environ.get("VCPKG_ROOT") or os.environ.get("VCPKG_INSTALLATION_ROOT")
-    if not vcpkg_root:
+    if not ensure_vcpkg_root_env():
         print("Error: Environment variable VCPKG_ROOT or VCPKG_INSTALLATION_ROOT is not set.", file=sys.stderr)
         return 1
 
-    toolchain_file = Path(vcpkg_root) / "scripts" / "buildsystems" / "vcpkg.cmake"
+    toolchain_file = Path(os.environ["VCPKG_ROOT"]) / "scripts" / "buildsystems" / "vcpkg.cmake"
     if not toolchain_file.exists():
         print(f"Error: Vcpkg toolchain file not found: {toolchain_file}", file=sys.stderr)
         return 1
 
-    build_dir = project_root / "build" / configuration
-    cmake_cache_args = [
-        "cmake",
-        "-S",
-        str(project_root),
-        "-B",
-        str(build_dir),
-        f"-DCMAKE_TOOLCHAIN_FILE={toolchain_file}",
-        f"-DSIV3D_MESSAGEBUS_BUILD_TESTS={'ON' if target['enable_tests'] else 'OFF'}",
-    ]
-    if generator:
-        cmake_cache_args.extend(["-G", generator])
-        # Xcodeジェネレータの場合、Intel x64アーキテクチャを強制
-        if generator == "Xcode":
-            cmake_cache_args.append("-DCMAKE_OSX_ARCHITECTURES=x86_64")
-            # vcpkgのトリプレットをx64-osxに設定（Apple Silicon非対応）
-            cmake_cache_args.append("-DVCPKG_TARGET_TRIPLET=x64-osx")
-    else:
-        # Single-configuration generators need CMAKE_BUILD_TYPE
-        cmake_cache_args.append(f"-DCMAKE_BUILD_TYPE={configuration}")
+    configure_preset = cmake_configure_preset_name(platform, configuration, project_stem)
+    build_preset = cmake_build_preset_name(platform, configuration, project_stem)
 
-    print(f"CMake configure command: {' '.join(cmake_cache_args)}")
+    cmake_configure_args = ["cmake", "--preset", configure_preset]
+    print(f"CMake configure preset: {configure_preset}")
     try:
-        configure = subprocess.run(cmake_cache_args, check=False, capture_output=True, text=True)
+        configure = subprocess.run(cmake_configure_args, cwd=project_root, check=False, capture_output=True, text=True)
     except OSError as exc:
         print(f"Failed to launch CMake: {exc}", file=sys.stderr)
         return 1
@@ -169,20 +175,10 @@ def build_with_cmake(project_root: Path, project_stem: str, configuration: str, 
             print(configure.stdout, file=sys.stderr)
         return configure.returncode
 
-    build_cmd = [
-        "cmake",
-        "--build",
-        str(build_dir),
-        "--target",
-        target["target"],
-    ]
-    # Multi-configuration generators (like Xcode) need --config
-    if generator == "Xcode":
-        build_cmd.append(f"--config={configuration}")
-
-    print(f"CMake build command: {' '.join(build_cmd)}")
+    build_cmd = ["cmake", "--build", "--preset", build_preset]
+    print(f"CMake build preset: {build_preset}")
     try:
-        build = subprocess.run(build_cmd, check=False)
+        build = subprocess.run(build_cmd, cwd=project_root, check=False)
     except OSError as exc:
         print(f"Failed to launch CMake build: {exc}", file=sys.stderr)
         return 1
@@ -207,19 +203,15 @@ def main() -> int:
     project_stem = Path(project_name).stem
 
     if sys.platform.startswith("win"):
-        return build_with_msbuild(project_root, project_name, args.configuration, args.platform, args.msbuild_path)
+        return build_with_msbuild(project_root, project_name, args.configuration, args.msbuild_path)
     if sys.platform.startswith("linux"):
-        if args.platform not in {"x64", ""}:
-            print(f"Info: --platform={args.platform} is ignored on Linux.", file=sys.stderr)
         if args.msbuild_path:
             print("Info: --msbuild-path is ignored on Linux.", file=sys.stderr)
-        return build_with_cmake(project_root, project_stem, args.configuration)
+        return build_with_cmake(project_root, project_stem, args.configuration, "linux")
     if sys.platform == "darwin":
-        if args.platform not in {"x64", ""}:
-            print(f"Info: --platform={args.platform} is ignored on macOS.", file=sys.stderr)
         if args.msbuild_path:
             print("Info: --msbuild-path is ignored on macOS.", file=sys.stderr)
-        return build_with_cmake(project_root, project_stem, args.configuration, "Xcode")
+        return build_with_cmake(project_root, project_stem, args.configuration, "macos")
 
     print(f"Error: Unsupported platform '{sys.platform}'.", file=sys.stderr)
     return 1

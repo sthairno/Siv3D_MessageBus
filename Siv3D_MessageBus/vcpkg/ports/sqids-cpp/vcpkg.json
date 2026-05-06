@@ -1,0 +1,7 @@
+{
+  "name": "sqids-cpp",
+  "version-string": "0.3.0",
+  "description": "Sqids C++ header-only library for generating short unique IDs from numbers",
+  "homepage": "https://github.com/sqids/sqids-cpp",
+  "license": "MIT"
+}

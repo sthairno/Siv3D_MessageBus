@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
@@ -123,9 +123,12 @@
   <ItemGroup>
     <ClCompile Include="test\Main.cpp" />
     <ClCompile Include="test\MessageBusTest.cpp" />
+    <ClCompile Include="test\PlayerListTest.cpp" />
     <ClCompile Include="test\RedisConnectionTest.cpp" />
     <ClCompile Include="test\RedisConnectionPushTest.cpp" />
     <ClCompile Include="test\SharedVariableTest.cpp" />
+    <ClCompile Include="test\SubscriptionWorkerTest.cpp" />
+    <ClCompile Include="test\VariableWorkerTest.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="test\App\Resource.rc" />
