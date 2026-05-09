@@ -101,11 +101,13 @@ def _package_mac(project_root: Path, dest_root: Path, include_source: Path) -> N
 
 
 def _package_windows(project_root: Path, dest_root: Path, include_source: Path) -> None:
-    """Build Windows package layout (include + lib/Windows, Release only) and shortcut."""
+    """Build Windows package layout (include + lib/Windows) and shortcut."""
     readme_source = project_root / "WINDOWS_HOW_TO_INSTALL.md"
     message_bus_release_lib = project_root / "build" / "Siv3D_MessageBus" / "release" / "bin" / "siv3d-messagebus.lib"
+    message_bus_debug_lib = project_root / "build" / "Siv3D_MessageBus" / "debug" / "bin" / "siv3d-messagebus_d.lib"
     vcpkg_root = project_root / "vcpkg_installed" / "x64-windows-static" / "x64-windows-static"
     hiredis_release_lib = vcpkg_root / "lib" / "hiredis.lib"
+    hiredis_debug_lib = vcpkg_root / "debug" / "lib" / "hiredisd.lib"
     hiredis_license = vcpkg_root / "share" / "hiredis" / "copyright"
 
     include_dest = dest_root / "include" / "ThirdParty" / "MessageBus"
@@ -116,7 +118,9 @@ def _package_windows(project_root: Path, dest_root: Path, include_source: Path) 
     print("Validating required resources...")
     resolve_path(include_source, "MessageBus public headers")
     resolve_path(message_bus_release_lib, "siv3d-messagebus.lib (Release)")
+    resolve_path(message_bus_debug_lib, "siv3d-messagebus_d.lib (Debug)")
     resolve_path(hiredis_release_lib, "hiredis.lib (Release)")
+    resolve_path(hiredis_debug_lib, "hiredisd.lib (Debug)")
     resolve_path(hiredis_license, "hiredis license file")
     resolve_path(readme_source, readme_source.name)
 
@@ -136,11 +140,13 @@ def _package_windows(project_root: Path, dest_root: Path, include_source: Path) 
         destination_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source_path, destination_path)
 
-    print("Copying MessageBus libraries (Release only)...")
+    print("Copying MessageBus libraries...")
     shutil.copy2(message_bus_release_lib, message_bus_lib_dest / message_bus_release_lib.name)
+    shutil.copy2(message_bus_debug_lib, message_bus_lib_dest / message_bus_debug_lib.name)
 
-    print("Copying hiredis libraries (Release only)...")
+    print("Copying hiredis libraries...")
     shutil.copy2(hiredis_release_lib, hiredis_lib_dest / hiredis_release_lib.name)
+    shutil.copy2(hiredis_debug_lib, hiredis_lib_dest / hiredis_debug_lib.name)
 
     print("Placing hiredis license...")
     shutil.copy2(hiredis_license, hiredis_lib_dest / "LICENSE_hiredis.txt")
