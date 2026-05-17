@@ -491,8 +491,10 @@ void Main()
 				renderCellHighlight = true;
 				if (MouseL.down() && hoveredCellPos)
 				{
-					cachedBoard->putPiece(hoveredCellPos.value(), 1);
-					sharedBoard->set(cachedBoard->asJson()); // 共有変数に反映
+					if (cachedBoard->putPiece(hoveredCellPos.value(), 1))
+					{
+						sharedBoard->set(cachedBoard->asJson()); // 共有変数に反映
+					}
 				}
 			}
 		}
