@@ -266,12 +266,12 @@ private:
 // ランダムな5文字のルームIDを生成する
 String GenerateRandomBoardId()
 {
-	static constexpr StringView CharactorList = U"ABCDEFGHJKLMNPQRSTUVWXYZ0123456789";
+	static constexpr StringView CharacterList = U"ABCDEFGHJKLMNPQRSTUVWXYZ0123456789";
 
 	String roomId;
 	for (auto _ : Iota(5))
 	{
-		roomId.push_back(CharactorList[RandomClosedOpen<size_t>(0, CharactorList.size())]);
+		roomId.push_back(CharacterList[RandomClosedOpen<size_t>(0, CharacterList.size())]);
 	}
 
 	return roomId;
