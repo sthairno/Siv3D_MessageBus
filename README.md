@@ -288,3 +288,12 @@ void Main()
 	bus.shutdown();
 }
 ```
+
+## 5. 実装サンプル: リバーシ
+
+MessageBusの機能を使って、2人のプレイヤーが同じ盤面を共有しながら対戦できるシンプルなリバーシゲームです。
+
+| [ソースコードを開く](./Example/Main.cpp) |
+| --- |
+
+<img width="1302" height="789" alt="image" src="https://github.com/user-attachments/assets/b2bb4baa-b9c4-44d4-be62-b287168645ee" />
